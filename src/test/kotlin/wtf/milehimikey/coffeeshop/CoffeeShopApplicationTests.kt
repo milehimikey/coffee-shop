@@ -16,9 +16,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import org.awaitility.Awaitility.await
-import org.awaitility.kotlin.atMost
-import org.awaitility.kotlin.untilAsserted
-import org.awaitility.kotlin.untilNotNull
 
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
