@@ -10,6 +10,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.test.annotation.DirtiesContext
 import wtf.milehimikey.coffeeshop.orders.OrderView
+import wtf.milehimikey.coffeeshop.payments.PaymentView
 import wtf.milehimikey.coffeeshop.products.ProductView
 import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
@@ -464,5 +465,144 @@ class CoffeeShopApplicationTests {
 
         assertEquals(HttpStatus.OK, getResponse.statusCode)
         assertEquals("SUBMITTED", getResponse.body?.status)
+    }
+
+    // Payment REST Endpoint Tests
+
+    @Test
+    fun `should create payment`() {
+        // Given
+        val request = CreatePaymentRequest(
+            orderId = "order-1",
+            amount = BigDecimal("42.50")
+        )
+
+        // When
+        val response = restTemplate.postForEntity(
+            "/api/payments",
+            request,
+            String::class.java
+        )
+
+        // Then
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+
+        // Wait for event processing
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val paymentResponse = restTemplate.getForEntity(
+                "/api/payments",
+                Array<PaymentView>::class.java
+            )
+            assertEquals(HttpStatus.OK, paymentResponse.statusCode)
+            assertNotNull(paymentResponse.body)
+            assert(paymentResponse.body!!.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `should process payment`() {
+        // Given
+        val createRequest = CreatePaymentRequest(
+            orderId = "order-2",
+            amount = BigDecimal("25.00")
+        )
+
+        val createResponse = restTemplate.postForEntity(
+            "/api/payments",
+            createRequest,
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, createResponse.statusCode)
+        val paymentId = createResponse.body
+        assertNotNull(paymentId)
+
+        // Wait for event processing
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val paymentResponse = restTemplate.getForEntity(
+                "/api/payments/{id}",
+                PaymentView::class.java,
+                paymentId
+            )
+            assertEquals(HttpStatus.OK, paymentResponse.statusCode)
+        }
+
+        // When
+        val response = restTemplate.postForEntity(
+            "/api/payments/{paymentId}/process",
+            null,
+            String::class.java,
+            paymentId
+        )
+
+        // Then
+        assertEquals(HttpStatus.OK, response.statusCode)
+
+        // Wait for event processing
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val paymentResponse = restTemplate.getForEntity(
+                "/api/payments/{id}",
+                PaymentView::class.java,
+                paymentId
+            )
+            assertEquals(HttpStatus.OK, paymentResponse.statusCode)
+            assertEquals("PROCESSED", paymentResponse.body?.status)
+            assertNotNull(paymentResponse.body?.transactionId)
+        }
+    }
+
+    @Test
+    fun `should fail payment`() {
+        // Given
+        val createRequest = CreatePaymentRequest(
+            orderId = "order-3",
+            amount = BigDecimal("100.00")
+        )
+
+        val createResponse = restTemplate.postForEntity(
+            "/api/payments",
+            createRequest,
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, createResponse.statusCode)
+        val paymentId = createResponse.body
+        assertNotNull(paymentId)
+
+        // Wait for event processing
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val paymentResponse = restTemplate.getForEntity(
+                "/api/payments/{id}",
+                PaymentView::class.java,
+                paymentId
+            )
+            assertEquals(HttpStatus.OK, paymentResponse.statusCode)
+        }
+
+        val failRequest = FailPaymentRequest(
+            reason = "Insufficient funds"
+        )
+
+        // When
+        val response = restTemplate.postForEntity(
+            "/api/payments/{paymentId}/fail",
+            failRequest,
+            String::class.java,
+            paymentId
+        )
+
+        // Then
+        assertEquals(HttpStatus.OK, response.statusCode)
+
+        // Wait for event processing
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val paymentResponse = restTemplate.getForEntity(
+                "/api/payments/{id}",
+                PaymentView::class.java,
+                paymentId
+            )
+            assertEquals(HttpStatus.OK, paymentResponse.statusCode)
+            assertEquals("FAILED", paymentResponse.body?.status)
+            assertEquals("Insufficient funds", paymentResponse.body?.failureReason)
+        }
     }
 }
