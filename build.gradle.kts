@@ -52,6 +52,8 @@ dependencies {
     testImplementation("org.testcontainers:mongodb")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.axonframework:axon-test")
+    testImplementation("org.awaitility:awaitility:4.2.0")
+    testImplementation("org.awaitility:awaitility-kotlin:4.2.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

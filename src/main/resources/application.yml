@@ -37,12 +37,3 @@ axon:
     general: jackson
     events: jackson
     messages: jackson
-  eventhandling:
-    processors:
-      product:
-        mode: subscribing
-        source: eventBus
-  aggregate:
-    product:
-      cache:
-        size: 100
