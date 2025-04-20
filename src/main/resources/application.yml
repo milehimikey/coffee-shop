@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: coffee-shop
+
+  # MongoDB Configuration
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: coffeeshop
+      username: root
+      password: secret
+      authentication-database: admin
+
+  # PostgreSQL Configuration for Axon Event Store
+  datasource:
+    url: jdbc:postgresql://localhost:5432/coffeeshop
+    username: coffeeshop
+    password: secret
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Server Configuration
+server:
+  port: 8080
+
+# Axon Configuration
+axon:
+  axonserver:
+    enabled: false
+  serializer:
+    general: jackson
+    events: jackson
+    messages: jackson
+  eventhandling:
+    processors:
+      product:
+        mode: subscribing
+        source: eventBus
+  aggregate:
+    product:
+      cache:
+        size: 100

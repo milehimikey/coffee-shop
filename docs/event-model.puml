@@ -1,0 +1,62 @@
+@startuml
+!include_once https://raw.githubusercontent.com/fidildev/plantuml-event-modeling/main/event-modeling-lib.iuml
+
+$enableAutoAlias()
+$enableAutoSpacing()
+
+$configureWireframeLane(Employee)
+$configureWireframeLane(Admin)
+
+$configureEventLane(Order, $context = Order)
+$configureEventLane(Product, $context = Product)
+$configureEventLane(Payment, $context = Payment)
+
+$wireframe(ProductScreen, Admin)
+$command(CreateProduct)
+$event(ProductCreated, Product)
+$view(Products)
+
+$wireframe(ProductScreen, Admin)
+$command(UpdateProduct)
+$event(ProductUpdated, Product)
+$view(Products)
+
+$wireframe(ProductScreen, Admin)
+$command(DeleteProduct)
+$event(ProductDeleted, Product)
+$view(Products)
+
+$wireframe(OrderScreen, Employee)
+$command(AddItemToOrder)
+$event(ItemAddedToOrder, Order)
+$view(Orders)
+$arrow(Orders, OrderScreen)
+
+$wireframe(OrderScreen, Employee)
+$command(SubmitOrderPayment)
+$event(OrderPaymentSubmitted, Payment)
+$view(Orders)
+$arrow(Payments, OrderScreen)
+
+$wireframe(OrderScreen, Employee)
+$command(SubmitOrder)
+$event(OrderSubmitted, Order)
+$view(Orders)
+$wireframe(OrderScreen, Employee)
+
+$wireframe(OrderScreen, Employee)
+$command(DeliverProduct)
+$event(ProductDelivered, Order)
+$view(Orders)
+$wireframe(OrderScreen, Employee)
+
+$wireframe(OrderScreen, Employee)
+$command(OrderCompleted)
+$event(OrderCompleted, Order)
+$view(Orders)
+$wireframe(OrderScreen, Employee)
+
+' Render the diagram
+$renderEventModelingDiagram()
+
+@enduml
