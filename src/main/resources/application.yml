@@ -20,10 +20,10 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: wtf.milehimikey.coffeeshop.config.ByteaEnforcedPostgresSQLDialect
 
 # Server Configuration
 server:
