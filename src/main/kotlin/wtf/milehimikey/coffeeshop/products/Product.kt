@@ -5,14 +5,16 @@ import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
+import org.axonframework.serialization.Revision
 import java.math.BigDecimal
 import java.util.*
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "productSnapshotTriggerDefinition")
+@Revision("1")
 class Product {
 
     @AggregateIdentifier
-    private lateinit var id: String
+    lateinit var id: String
     private lateinit var name: String
     private lateinit var description: String
     private lateinit var price: BigDecimal
@@ -37,7 +39,7 @@ class Product {
         if (!active) {
             throw IllegalStateException("Cannot update a deleted product")
         }
-        
+
         AggregateLifecycle.apply(
             ProductUpdated(
                 id = command.id,
@@ -53,7 +55,7 @@ class Product {
         if (!active) {
             throw IllegalStateException("Product is already deleted")
         }
-        
+
         AggregateLifecycle.apply(
             ProductDeleted(id = command.id)
         )

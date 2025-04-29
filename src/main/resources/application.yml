@@ -37,3 +37,12 @@ axon:
     general: jackson
     events: jackson
     messages: jackson
+  # Configure event sourcing repositories
+  repository:
+    default-snapshot-trigger-threshold: 50  # Global default snapshot threshold
+  # Configure event store
+  eventhandling:
+    processors:
+      order:
+        mode: tracking
+        thread-count: 2

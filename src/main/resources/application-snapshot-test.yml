@@ -1,0 +1,7 @@
+# Configuration for snapshot testing
+
+# Disable the regular data initializer
+spring:
+  config:
+    activate:
+      on-profile: snapshot-test

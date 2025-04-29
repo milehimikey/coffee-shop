@@ -22,3 +22,11 @@ data class PaymentRefunded(
     val paymentId: String,
     val refundId: String
 )
+
+/**
+ * Event emitted when a payment is reset to PENDING status.
+ * This is used for testing purposes to allow processing the same payment multiple times.
+ */
+data class PaymentReset(
+    val paymentId: String
+)

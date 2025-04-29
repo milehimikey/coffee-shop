@@ -5,14 +5,17 @@ import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
+import org.springframework.core.annotation.AliasFor
+import org.axonframework.serialization.Revision
 import java.math.BigDecimal
 import java.util.*
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
+@Revision("1")
 class Order {
 
     @AggregateIdentifier
-    private lateinit var id: String
+    lateinit var id: String
     private val items: MutableList<OrderItem> = mutableListOf()
     private var status: OrderStatus = OrderStatus.NEW
     private var totalAmount: BigDecimal = BigDecimal.ZERO

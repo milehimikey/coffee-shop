@@ -22,3 +22,11 @@ data class FailPayment(
 data class RefundPayment(
     @TargetAggregateIdentifier val paymentId: String
 )
+
+/**
+ * Special command for testing purposes to reset a payment to PENDING status.
+ * This allows us to process and refund the same payment multiple times.
+ */
+data class ResetPayment(
+    @TargetAggregateIdentifier val paymentId: String
+)
