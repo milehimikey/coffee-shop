@@ -19,7 +19,7 @@ repositories {
     mavenCentral()
 }
 
-extra["axon.version"] = "4.11.1"
+extra["axon.version"] = "4.11.2"
 
 dependencyManagement {
     imports {
@@ -35,11 +35,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("io.micrometer:micrometer-registry-prometheus:1.14.6")
 
     // Axon Framework
     implementation("org.axonframework:axon-spring-boot-starter")
     implementation("org.axonframework.extensions.mongo:axon-mongo")
     implementation("org.axonframework.extensions.kotlin:axon-kotlin")
+    implementation("org.axonframework:axon-micrometer")
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
