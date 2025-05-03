@@ -5,10 +5,42 @@ import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
-import wtf.milehimikey.coffeeshop.orders.*
-import wtf.milehimikey.coffeeshop.payments.*
-import wtf.milehimikey.coffeeshop.products.*
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
+import wtf.milehimikey.coffeeshop.config.DeadLetterProcessor
+import wtf.milehimikey.coffeeshop.orders.AddItemToOrder
+import wtf.milehimikey.coffeeshop.orders.CompleteOrder
+import wtf.milehimikey.coffeeshop.orders.CreateOrder
+import wtf.milehimikey.coffeeshop.orders.DeliverOrder
+import wtf.milehimikey.coffeeshop.orders.FindAllOrders
+import wtf.milehimikey.coffeeshop.orders.FindOrderById
+import wtf.milehimikey.coffeeshop.orders.FindOrdersByCustomerId
+import wtf.milehimikey.coffeeshop.orders.FindOrdersByStatus
+import wtf.milehimikey.coffeeshop.orders.OrderView
+import wtf.milehimikey.coffeeshop.orders.SubmitOrder
+import wtf.milehimikey.coffeeshop.payments.CreatePayment
+import wtf.milehimikey.coffeeshop.payments.FailPayment
+import wtf.milehimikey.coffeeshop.payments.FindAllPayments
+import wtf.milehimikey.coffeeshop.payments.FindPaymentById
+import wtf.milehimikey.coffeeshop.payments.FindPaymentsByOrderId
+import wtf.milehimikey.coffeeshop.payments.FindPaymentsByStatus
+import wtf.milehimikey.coffeeshop.payments.PaymentView
+import wtf.milehimikey.coffeeshop.payments.ProcessPayment
+import wtf.milehimikey.coffeeshop.payments.RefundPayment
+import wtf.milehimikey.coffeeshop.payments.ResetPayment
+import wtf.milehimikey.coffeeshop.products.CreateProduct
+import wtf.milehimikey.coffeeshop.products.DeleteProduct
+import wtf.milehimikey.coffeeshop.products.FindAllProducts
+import wtf.milehimikey.coffeeshop.products.FindProductById
+import wtf.milehimikey.coffeeshop.products.ProductView
+import wtf.milehimikey.coffeeshop.products.UpdateProduct
 import java.math.BigDecimal
 import java.util.concurrent.CompletableFuture
 
@@ -16,7 +48,9 @@ import java.util.concurrent.CompletableFuture
 @RequestMapping("/api")
 class RestEndpoint(
     private val commandGateway: CommandGateway,
-    private val queryGateway: QueryGateway
+    private val queryGateway: QueryGateway,
+    private val dataGenerator: DataGenerator,
+    private val deadLetterProcessor: DeadLetterProcessor
 ) {
 
     // Product Endpoints
@@ -257,6 +291,83 @@ class RestEndpoint(
             )
         }
     }
+
+    // Data Generation Endpoints
+
+    @PostMapping("/generate/products")
+    fun generateProducts(@RequestBody request: GenerateProductsRequest): ResponseEntity<List<String>> {
+        val productIds = dataGenerator.generateProducts(
+            count = request.count,
+            triggerSnapshot = request.triggerSnapshot
+        )
+        return ResponseEntity.ok(productIds)
+    }
+
+    @PostMapping("/generate/orders")
+    fun generateOrders(@RequestBody request: GenerateOrdersRequest): ResponseEntity<List<String>> {
+        val orderIds = dataGenerator.generateOrders(
+            count = request.count,
+            customerId = request.customerId,
+            itemsPerOrder = request.itemsPerOrder,
+            triggerSnapshot = request.triggerSnapshot,
+            completeOrders = request.completeOrders
+        )
+        return ResponseEntity.ok(orderIds)
+    }
+
+    @PostMapping("/generate/payments")
+    fun generatePayments(@RequestBody request: GeneratePaymentsRequest): ResponseEntity<List<String>> {
+        val paymentIds = dataGenerator.generatePayments(
+            orderIds = request.orderIds,
+            triggerSnapshot = request.triggerSnapshot,
+            triggerDeadLetter = request.triggerDeadLetter
+        )
+        return ResponseEntity.ok(paymentIds)
+    }
+
+    @PostMapping("/generate/batch")
+    fun generateBatch(@RequestBody request: GenerateBatchRequest): ResponseEntity<BatchGenerationResult> {
+        val result = dataGenerator.generateBatch(
+            productCount = request.productCount,
+            orderCount = request.orderCount,
+            triggerSnapshots = request.triggerSnapshots,
+            triggerDeadLetters = request.triggerDeadLetters
+        )
+        return ResponseEntity.ok(result)
+    }
+
+    @PostMapping("/generate/deadletters")
+    fun triggerDeadLetters(): ResponseEntity<DeadLetterTriggerResult> {
+        val result = dataGenerator.triggerDeadLetters()
+        return ResponseEntity.ok(result)
+    }
+
+    @PostMapping("/generate/deadletters/payment")
+    fun triggerPaymentDeadLetter(): ResponseEntity<String> {
+        val result = dataGenerator.triggerPaymentDeadLetter()
+        return ResponseEntity.ok(result)
+    }
+
+    @PostMapping("/generate/deadletters/product")
+    fun triggerProductDeadLetter(): ResponseEntity<String> {
+        val result = dataGenerator.triggerProductDeadLetter()
+        return ResponseEntity.ok(result)
+    }
+
+    @PostMapping("/generate/deadletters/order")
+    fun triggerOrderDeadLetter(): ResponseEntity<String> {
+        val result = dataGenerator.triggerOrderDeadLetter()
+        return ResponseEntity.ok(result)
+    }
+
+    @PostMapping("/deadletters/process")
+    fun processDeadLetters(@RequestBody request: ProcessDeadLettersRequest): ResponseEntity<Map<String, Int>> {
+        val result = deadLetterProcessor.processDeadLettersManually(
+            processingGroup = request.processingGroup,
+            count = request.count
+        )
+        return ResponseEntity.ok(result)
+    }
 }
 
 // Product Request DTOs
@@ -292,4 +403,36 @@ data class CreatePaymentRequest(
 
 data class FailPaymentRequest(
     val reason: String
+)
+
+// Data Generation Request DTOs
+data class GenerateProductsRequest(
+    val count: Int = 10,
+    val triggerSnapshot: Boolean = false
+)
+
+data class GenerateOrdersRequest(
+    val count: Int = 10,
+    val customerId: String? = null,
+    val itemsPerOrder: Int? = null,
+    val triggerSnapshot: Boolean = false,
+    val completeOrders: Boolean = true
+)
+
+data class GeneratePaymentsRequest(
+    val orderIds: List<String>,
+    val triggerSnapshot: Boolean = false,
+    val triggerDeadLetter: Boolean = false
+)
+
+data class GenerateBatchRequest(
+    val productCount: Int = 10,
+    val orderCount: Int = 50,
+    val triggerSnapshots: Boolean = true,
+    val triggerDeadLetters: Boolean = true
+)
+
+data class ProcessDeadLettersRequest(
+    val processingGroup: String,
+    val count: Int = 10
 )

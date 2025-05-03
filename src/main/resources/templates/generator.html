@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Shop - Data Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Coffee Shop Data Generator</h1>
+        
+        <!-- Alert for messages -->
+        <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${message}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        
+        <div class="row">
+            <!-- Batch Generation -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Generate Batch Data</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/generator/batch}" method="post">
+                            <div class="form-group">
+                                <label for="productCount">Number of Products:</label>
+                                <input type="number" class="form-control" id="productCount" name="productCount" value="10" min="1" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label for="orderCount">Number of Orders:</label>
+                                <input type="number" class="form-control" id="orderCount" name="orderCount" value="50" min="1" max="500">
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="triggerSnapshots" name="triggerSnapshots" checked>
+                                <label class="form-check-label" for="triggerSnapshots">
+                                    Trigger Snapshots
+                                </label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="triggerDeadLetters" name="triggerDeadLetters" checked>
+                                <label class="form-check-label" for="triggerDeadLetters">
+                                    Trigger Dead Letters
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Generate Batch</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Products Generation -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Generate Products</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/generator/products}" method="post">
+                            <div class="form-group">
+                                <label for="productGenCount">Number of Products:</label>
+                                <input type="number" class="form-control" id="productGenCount" name="count" value="5" min="1" max="100">
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="productTriggerSnapshot" name="triggerSnapshot">
+                                <label class="form-check-label" for="productTriggerSnapshot">
+                                    Trigger Snapshot
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-success">Generate Products</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orders Generation -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">Generate Orders</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/generator/orders}" method="post">
+                            <div class="form-group">
+                                <label for="orderGenCount">Number of Orders:</label>
+                                <input type="number" class="form-control" id="orderGenCount" name="count" value="10" min="1" max="500">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerId">Customer ID (optional):</label>
+                                <input type="text" class="form-control" id="customerId" name="customerId" placeholder="Leave blank for random customers">
+                            </div>
+                            <div class="form-group">
+                                <label for="itemsPerOrder">Items Per Order (optional):</label>
+                                <input type="number" class="form-control" id="itemsPerOrder" name="itemsPerOrder" placeholder="Leave blank for random items">
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="orderTriggerSnapshot" name="triggerSnapshot">
+                                <label class="form-check-label" for="orderTriggerSnapshot">
+                                    Trigger Snapshot
+                                </label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="completeOrders" name="completeOrders" checked>
+                                <label class="form-check-label" for="completeOrders">
+                                    Complete Orders
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-info">Generate Orders</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dead Letter Triggering -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-warning">
+                        <h5 class="mb-0">Trigger Dead Letters</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/generator/deadletters/trigger}" method="post">
+                            <div class="form-group">
+                                <label for="processor">Processor:</label>
+                                <select class="form-control" id="processor" name="processor">
+                                    <option value="all">All Processors</option>
+                                    <option value="payment">Payment Processor</option>
+                                    <option value="product">Product Processor</option>
+                                    <option value="order">Order Processor</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-warning">Trigger Dead Letters</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dead Letter Processing -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">Process Dead Letters</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/generator/deadletters/process}" method="post">
+                            <div class="form-group">
+                                <label for="processingGroup">Processing Group:</label>
+                                <select class="form-control" id="processingGroup" name="processingGroup">
+                                    <option value="payment">Payment</option>
+                                    <option value="product">Product</option>
+                                    <option value="order">Order</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="count">Max Items to Process:</label>
+                                <input type="number" class="form-control" id="count" name="count" value="10" min="1" max="100">
+                            </div>
+                            <button type="submit" class="btn btn-danger">Process Dead Letters</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 mb-5">
+            <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -52,10 +52,15 @@ axon:
       order:
         mode: tracking
         thread-count: 2
+        dlq:
+          enabled: true
       payment:
         mode: tracking
         thread-count: 1
         dlq:
           enabled: true
-          max-sequence-size: 256
-          processing-group: payment
+      product:
+        mode: tracking
+        thread-count: 2
+        dlq:
+          enabled: true
