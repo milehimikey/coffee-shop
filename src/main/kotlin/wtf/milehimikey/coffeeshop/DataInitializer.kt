@@ -276,7 +276,38 @@ class DataInitializer(
         logger.info("Starting to create payments for ${orderIds.size} orders...")
         var processedCount = 0
 
+        // Create one special payment with amount $13.13 to trigger dead letter
+        logger.info("Creating a special payment with amount $13.13 to demonstrate dead letter queue functionality")
+        val specialOrderId = orderIds.first()
+        val specialPaymentId = commandGateway.sendAndWait<String>(
+            CreatePayment(
+                orderId = specialOrderId,
+                amount = BigDecimal("13.13")
+            )
+        )
+
+        // Process the special payment
+        commandGateway.sendAndWait<String>(
+            ProcessPayment(paymentId = specialPaymentId)
+        )
+
+        // Attempt to reset the payment - this will trigger the dead letter
+        try {
+            commandGateway.sendAndWait<String>(
+                ResetPayment(paymentId = specialPaymentId)
+            )
+        } catch (e: Exception) {
+            logger.info("Expected error when resetting payment with amount $13.13: ${e.message}")
+            logger.info("This payment should be sent to the dead letter queue")
+        }
+
+        paymentIds.add(specialPaymentId)
+        processedCount++
+
         for ((index, orderId) in orderIds.withIndex()) {
+            // Skip the first order as we already created a payment for it
+            if (index == 0) continue
+
             // Query for the order to get the total amount
             val order = queryGateway.query(
                 FindOrderById(orderId),

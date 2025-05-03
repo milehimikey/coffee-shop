@@ -17,4 +17,12 @@
             <column name="metaData" column-definition="BYTEA"></column>
         </attribute-override>
     </entity>
+    <entity class="org.axonframework.eventhandling.deadletter.jpa.DeadLetterEntry">
+        <attribute-override name="serializedEvent">
+            <column name="serializedEvent" column-definition="BYTEA"></column>
+        </attribute-override>
+        <attribute-override name="serializedDiagnostics">
+            <column name="serializedDiagnostics" column-definition="BYTEA"></column>
+        </attribute-override>
+    </entity>
 </entity-mappings>

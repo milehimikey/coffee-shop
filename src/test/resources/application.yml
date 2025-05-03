@@ -1,0 +1,24 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: wtf.milehimikey.coffeeshop.config.ByteaEnforcedPostgresSQLDialect
+
+# Axon Configuration for tests
+axon:
+  axonserver:
+    enabled: false
+  serializer:
+    general: jackson
+    events: jackson
+    messages: jackson
+  # Configure event processors
+  eventhandling:
+    processors:
+      payment:
+        mode: tracking
+        thread-count: 2
+        dlq:
+          enabled: true

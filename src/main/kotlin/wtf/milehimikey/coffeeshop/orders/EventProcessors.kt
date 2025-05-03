@@ -10,9 +10,8 @@ import java.time.Instant
 @Component
 @ProcessingGroup("order")
 class OrderEventProcessor(private val orderRepository: OrderRepository) {
-    
+
     @EventHandler
-    @Transactional
     fun on(event: OrderCreated) {
         orderRepository.save(
             OrderDocument(
@@ -24,9 +23,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             )
         )
     }
-    
+
     @EventHandler
-    @Transactional
     fun on(event: ItemAddedToOrder) {
         orderRepository.findById(event.orderId).ifPresent { order ->
             val updatedItems = order.items.toMutableList().apply {
@@ -39,11 +37,11 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
                     )
                 )
             }
-            
+
             val newTotalAmount = updatedItems.fold(BigDecimal.ZERO) { acc, item ->
                 acc.add(item.price.multiply(BigDecimal(item.quantity)))
             }
-            
+
             orderRepository.save(
                 order.copy(
                     items = updatedItems,
@@ -53,9 +51,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             )
         }
     }
-    
+
     @EventHandler
-    @Transactional
     fun on(event: OrderSubmitted) {
         orderRepository.findById(event.orderId).ifPresent { order ->
             orderRepository.save(
@@ -66,9 +63,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             )
         }
     }
-    
+
     @EventHandler
-    @Transactional
     fun on(event: OrderDelivered) {
         orderRepository.findById(event.orderId).ifPresent { order ->
             orderRepository.save(
@@ -79,9 +75,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             )
         }
     }
-    
+
     @EventHandler
-    @Transactional
     fun on(event: OrderCompleted) {
         orderRepository.findById(event.orderId).ifPresent { order ->
             orderRepository.save(

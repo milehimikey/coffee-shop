@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration
 
 /**
  * Axon Framework configuration class.
- * Defines snapshot trigger definitions for different aggregates.
+ * Defines snapshot trigger definitions for different aggregates and dead letter queue configuration.
  */
 @Configuration
 class AxonConfig {
@@ -38,4 +38,7 @@ class AxonConfig {
     @Bean
     fun paymentSnapshotTriggerDefinition(snapshotter: Snapshotter) =
         EventCountSnapshotTriggerDefinition(snapshotter, 25)
+
+    // Dead letter queue configuration is now done in application.yml
+    // with the property: axon.eventhandling.processors.payment.dlq.enabled=true
 }

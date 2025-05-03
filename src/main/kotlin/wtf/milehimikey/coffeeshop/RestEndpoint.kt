@@ -18,9 +18,9 @@ class RestEndpoint(
     private val commandGateway: CommandGateway,
     private val queryGateway: QueryGateway
 ) {
-    
+
     // Product Endpoints
-    
+
     @PostMapping("/products")
     fun createProduct(@RequestBody request: CreateProductRequest): CompletableFuture<ResponseEntity<String>> {
         val command = CreateProduct(
@@ -32,7 +32,7 @@ class RestEndpoint(
             .thenApply { productId -> ResponseEntity.ok(productId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PutMapping("/products/{id}")
     fun updateProduct(
         @PathVariable id: String,
@@ -48,7 +48,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(id) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @DeleteMapping("/products/{id}")
     fun deleteProduct(@PathVariable id: String): CompletableFuture<ResponseEntity<String>> {
         val command = DeleteProduct(id = id)
@@ -56,7 +56,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(id) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @GetMapping("/products/{id}")
     fun getProduct(@PathVariable id: String): CompletableFuture<ResponseEntity<ProductView>> {
         return queryGateway.query(
@@ -70,7 +70,7 @@ class RestEndpoint(
             }
         }
     }
-    
+
     @GetMapping("/products")
     fun getAllProducts(
         @RequestParam(required = false, defaultValue = "false") includeInactive: Boolean
@@ -80,9 +80,9 @@ class RestEndpoint(
             ResponseTypes.multipleInstancesOf(ProductView::class.java)
         )
     }
-    
+
     // Order Endpoints
-    
+
     @PostMapping("/orders")
     fun createOrder(@RequestBody request: CreateOrderRequest): CompletableFuture<ResponseEntity<String>> {
         val command = CreateOrder(
@@ -92,7 +92,7 @@ class RestEndpoint(
             .thenApply { orderId -> ResponseEntity.ok(orderId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/orders/{orderId}/items")
     fun addItemToOrder(
         @PathVariable orderId: String,
@@ -109,7 +109,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(orderId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/orders/{orderId}/submit")
     fun submitOrder(@PathVariable orderId: String): CompletableFuture<ResponseEntity<String>> {
         val command = SubmitOrder(orderId = orderId)
@@ -117,7 +117,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(orderId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/orders/{orderId}/deliver")
     fun deliverOrder(@PathVariable orderId: String): CompletableFuture<ResponseEntity<String>> {
         val command = DeliverOrder(orderId = orderId)
@@ -125,7 +125,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(orderId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/orders/{orderId}/complete")
     fun completeOrder(@PathVariable orderId: String): CompletableFuture<ResponseEntity<String>> {
         val command = CompleteOrder(orderId = orderId)
@@ -133,7 +133,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(orderId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @GetMapping("/orders/{id}")
     fun getOrder(@PathVariable id: String): CompletableFuture<ResponseEntity<OrderView>> {
         return queryGateway.query(
@@ -147,7 +147,7 @@ class RestEndpoint(
             }
         }
     }
-    
+
     @GetMapping("/orders")
     fun getAllOrders(
         @RequestParam(required = false) customerId: String?,
@@ -168,9 +168,9 @@ class RestEndpoint(
             )
         }
     }
-    
+
     // Payment Endpoints
-    
+
     @PostMapping("/payments")
     fun createPayment(@RequestBody request: CreatePaymentRequest): CompletableFuture<ResponseEntity<String>> {
         val command = CreatePayment(
@@ -181,7 +181,7 @@ class RestEndpoint(
             .thenApply { paymentId -> ResponseEntity.ok(paymentId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/payments/{paymentId}/process")
     fun processPayment(@PathVariable paymentId: String): CompletableFuture<ResponseEntity<String>> {
         val command = ProcessPayment(paymentId = paymentId)
@@ -189,7 +189,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(paymentId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/payments/{paymentId}/fail")
     fun failPayment(
         @PathVariable paymentId: String,
@@ -200,7 +200,7 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(paymentId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
     @PostMapping("/payments/{paymentId}/refund")
     fun refundPayment(@PathVariable paymentId: String): CompletableFuture<ResponseEntity<String>> {
         val command = RefundPayment(paymentId = paymentId)
@@ -208,7 +208,21 @@ class RestEndpoint(
             .thenApply { ResponseEntity.ok(paymentId) }
             .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
     }
-    
+
+    /**
+     * Reset a payment to PENDING status.
+     * This endpoint is primarily for testing the dead letter queue functionality.
+     * If the payment ID ends with "error", the event processor will throw an exception
+     * and the event will be stored in the dead letter queue.
+     */
+    @PostMapping("/payments/{paymentId}/reset")
+    fun resetPayment(@PathVariable paymentId: String): CompletableFuture<ResponseEntity<String>> {
+        val command = ResetPayment(paymentId = paymentId)
+        return commandGateway.send<String>(command)
+            .thenApply { ResponseEntity.ok(paymentId) }
+            .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message) }
+    }
+
     @GetMapping("/payments/{id}")
     fun getPayment(@PathVariable id: String): CompletableFuture<ResponseEntity<PaymentView>> {
         return queryGateway.query(
@@ -222,7 +236,7 @@ class RestEndpoint(
             }
         }
     }
-    
+
     @GetMapping("/payments")
     fun getAllPayments(
         @RequestParam(required = false) orderId: String?,
