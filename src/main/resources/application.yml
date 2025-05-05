@@ -59,24 +59,23 @@ axon:
     general: jackson
     events: jackson
     messages: jackson
-  # Configure event sourcing repositories
-  repository:
-    default-snapshot-trigger-threshold: 50  # Global default snapshot threshold
-  # Configure event store
   eventhandling:
     processors:
       order:
         mode: pooled
         thread-count: 8
+        batch-size: 10
         dlq:
           enabled: true
       payment:
         mode: pooled
         thread-count: 8
+        batch-size: 10
         dlq:
           enabled: true
       product:
         mode: pooled
         thread-count: 8
+        batch-size: 10
         dlq:
           enabled: true
