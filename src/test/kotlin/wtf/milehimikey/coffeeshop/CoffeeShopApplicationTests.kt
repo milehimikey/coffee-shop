@@ -1,5 +1,6 @@
 package wtf.milehimikey.coffeeshop
 
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -9,6 +10,8 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.test.annotation.DirtiesContext
+import org.springframework.test.context.ActiveProfiles
+import wtf.milehimikey.coffeeshop.config.IdempotencyRepository
 import wtf.milehimikey.coffeeshop.orders.OrderView
 import wtf.milehimikey.coffeeshop.payments.PaymentView
 import wtf.milehimikey.coffeeshop.products.ProductView
@@ -17,9 +20,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.awaitility.Awaitility.await
-import org.springframework.test.context.ActiveProfiles
-import wtf.milehimikey.coffeeshop.config.DeadLetterView
 
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -29,6 +29,9 @@ class CoffeeShopApplicationTests {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
+
+    @Autowired
+    private lateinit var idempotencyRepository: IdempotencyRepository
 
     @Test
     fun contextLoads() {
@@ -674,5 +677,48 @@ class CoffeeShopApplicationTests {
             assertEquals("FAILED", paymentResponse.body?.status)
             assertEquals("Insufficient funds", paymentResponse.body?.failureReason)
         }
+    }
+
+    // Idempotency Interceptor Tests
+
+    @Test
+    fun `should ensure idempotent event processing`() {
+        // Clear any existing idempotency records
+        idempotencyRepository.deleteAll()
+
+        // Create a product - this will generate events that should be processed exactly once
+        val productRequest = CreateProductRequest(
+            name = "Idempotency Test Product",
+            description = "Testing idempotent event processing",
+            price = BigDecimal("5.99")
+        )
+
+        val productResponse = restTemplate.postForEntity(
+            "/api/products",
+            productRequest,
+            String::class.java
+        )
+
+        assertEquals(HttpStatus.OK, productResponse.statusCode)
+        val productId = productResponse.body
+        assertNotNull(productId)
+
+        // Wait for event processing to complete
+        await().atMost(5, TimeUnit.SECONDS).until {
+            val records = idempotencyRepository.findAll().toList()
+            records.isNotEmpty()
+        }
+
+        // Verify that idempotency records were created
+        val records = idempotencyRepository.findAll().toList()
+        assertTrue(records.isNotEmpty(), "Idempotency records should be created")
+
+        // Verify that the product was created in the read model
+        val productView = restTemplate.getForObject(
+            "/api/products/$productId",
+            ProductView::class.java
+        )
+        assertNotNull(productView)
+        assertEquals("Idempotency Test Product", productView.name)
     }
 }

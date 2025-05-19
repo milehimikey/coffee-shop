@@ -18,17 +18,17 @@ axon:
   eventhandling:
     processors:
       payment:
-        mode: tracking
-        thread-count: 2
+        mode: pooled
+        thread-count: 8
         dlq:
           enabled: true
       order:
-        mode: tracking
-        thread-count: 2
+        mode: pooled
+        thread-count: 8
         dlq:
           enabled: true
       product:
-        mode: tracking
-        thread-count: 2
+        mode: pooled
+        thread-count: 8
         dlq:
           enabled: true
