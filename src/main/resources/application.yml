@@ -51,6 +51,8 @@ server:
 # Axon Configuration
 axon:
   metrics:
+    micrometer:
+      dimensional: true
     auto-configuration:
       enabled: true
   axonserver:
