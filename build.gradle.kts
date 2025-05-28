@@ -4,10 +4,11 @@ plugins {
     id("org.springframework.boot") version "3.4.4"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.jpa") version "1.9.25"
+    id("com.google.cloud.tools.jib") version "3.4.5"
 }
 
 group = "wtf.milehimikey"
-version = "0.0.1-SNAPSHOT"
+version = "0.0.1"
 
 java {
     toolchain {
@@ -75,4 +76,28 @@ allOpen {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+jib {
+    from {
+        image = "bitnami/java:21"
+    }
+    to {
+        image = "milehimikey/${rootProject.name}"
+        tags = setOf("${project.version}", "latest")
+    }
+    container {
+        ports = listOf("9090")
+        jvmFlags = listOf("-Xms512m", "-Xmx512m")
+        mainClass = "wtf.milehimikey.coffeeshop.CoffeeShopApplicationKt"
+        environment = mapOf(
+            "JAVA_TOOL_OPTIONS" to "-XX:+UseContainerSupport"
+        )
+        labels.set(mapOf(
+            "maintainer" to "MiKey <milehimikey@gmail.com>",
+            "org.opencontainers.image.title" to rootProject.name,
+            "org.opencontainers.image.version" to project.version.toString(),
+            "org.opencontainers.image.description" to "Coffee Shop Application"
+        ))
+    }
 }
