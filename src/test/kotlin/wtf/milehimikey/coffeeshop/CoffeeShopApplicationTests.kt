@@ -713,6 +713,14 @@ class CoffeeShopApplicationTests {
         val records = idempotencyRepository.findAll().toList()
         assertTrue(records.isNotEmpty(), "Idempotency records should be created")
 
+        // Verify the structure of the idempotency records
+        val record = records.first()
+        assertNotNull(record.eventId, "Event ID should be present")
+        assertNotNull(record.aggregateId, "Aggregate ID should be present")
+        assertNotNull(record.processingGroup, "Processing group should be present")
+        assertNotNull(record.headers, "Headers should be present")
+        assertTrue(record.headers.isNotEmpty(), "Headers should not be empty")
+
         // Verify that the product was created in the read model
         val productView = restTemplate.getForObject(
             "/api/products/$productId",
@@ -720,5 +728,13 @@ class CoffeeShopApplicationTests {
         )
         assertNotNull(productView)
         assertEquals("Idempotency Test Product", productView.name)
+
+        // Log some information about the idempotency record for verification
+        println("Idempotency record created:")
+        println("  Event ID: ${record.eventId}")
+        println("  Aggregate ID: ${record.aggregateId}")
+        println("  Processing Group: ${record.processingGroup}")
+        println("  Headers: ${record.headers.keys}")
+        println("  Is Replay: ${record.isReplay}")
     }
 }
