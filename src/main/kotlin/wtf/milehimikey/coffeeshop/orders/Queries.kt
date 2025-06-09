@@ -2,10 +2,10 @@ package wtf.milehimikey.coffeeshop.orders
 
 import org.axonframework.config.ProcessingGroup
 import org.axonframework.queryhandling.QueryHandler
+import org.javamoney.moneta.Money
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
-import java.time.Instant
 
 // Queries
 data class FindOrderById(val id: String)
@@ -19,9 +19,7 @@ data class OrderView(
     val customerId: String,
     val items: List<OrderItemView>,
     val status: String,
-    val totalAmount: BigDecimal,
-    val createdAt: Instant,
-    val updatedAt: Instant
+    val totalAmount: Money?,
 )
 
 data class OrderItemView(
@@ -35,7 +33,7 @@ data class OrderItemView(
 @Component
 @ProcessingGroup("order")
 class OrderQueryHandler(private val orderRepository: OrderRepository) {
-    
+
     @QueryHandler
     @Transactional(readOnly = true)
     fun handle(query: FindOrderById): OrderView? {
@@ -43,21 +41,21 @@ class OrderQueryHandler(private val orderRepository: OrderRepository) {
             .map { it.toView() }
             .orElse(null)
     }
-    
+
     @QueryHandler
     @Transactional(readOnly = true)
     fun handle(query: FindOrdersByCustomerId): List<OrderView> {
         return orderRepository.findByCustomerId(query.customerId)
             .map { it.toView() }
     }
-    
+
     @QueryHandler
     @Transactional(readOnly = true)
     fun handle(query: FindOrdersByStatus): List<OrderView> {
         return orderRepository.findByStatus(query.status)
             .map { it.toView() }
     }
-    
+
     @QueryHandler
     @Transactional(readOnly = true)
     fun handle(query: FindAllOrders): List<OrderView> {
@@ -65,7 +63,7 @@ class OrderQueryHandler(private val orderRepository: OrderRepository) {
             .take(query.limit)
             .map { it.toView() }
     }
-    
+
     private fun OrderDocument.toView(): OrderView {
         return OrderView(
             id = this.id,
@@ -73,11 +71,9 @@ class OrderQueryHandler(private val orderRepository: OrderRepository) {
             items = this.items.map { it.toView() },
             status = this.status,
             totalAmount = this.totalAmount,
-            createdAt = this.createdAt,
-            updatedAt = this.updatedAt
         )
     }
-    
+
     private fun OrderItemDocument.toView(): OrderItemView {
         return OrderItemView(
             productId = this.productId,

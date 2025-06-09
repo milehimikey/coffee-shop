@@ -38,6 +38,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("io.micrometer:micrometer-registry-prometheus:1.14.6")
 
+    // Java Money API (JSR 354)
+    implementation("org.javamoney:moneta:1.4.5")
+    implementation("org.zalando:jackson-datatype-money:1.3.0")
+
     // Axon Framework
     implementation("org.axonframework:axon-spring-boot-starter")
     implementation("org.axonframework.extensions.mongo:axon-mongo")

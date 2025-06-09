@@ -4,21 +4,20 @@ import org.axonframework.commandhandling.CommandHandler
 import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
-import org.axonframework.spring.stereotype.Aggregate
-import org.springframework.core.annotation.AliasFor
 import org.axonframework.serialization.Revision
+import org.axonframework.spring.stereotype.Aggregate
+import org.javamoney.moneta.Money
 import java.math.BigDecimal
-import java.util.*
 
 @Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
-@Revision("1")
+@Revision("2")
 class Order {
 
     @AggregateIdentifier
     lateinit var id: String
     private val items: MutableList<OrderItem> = mutableListOf()
     private var status: OrderStatus = OrderStatus.NEW
-    private var totalAmount: BigDecimal = BigDecimal.ZERO
+    private lateinit var totalAmount: Money
 
     constructor() // Required by Axon
 
@@ -38,13 +37,6 @@ class Order {
             throw IllegalStateException("Cannot add items to an order that is not in NEW status")
         }
 
-        val item = OrderItem(
-            productId = command.productId,
-            quantity = command.quantity,
-            price = command.price,
-            name = command.productName
-        )
-
         AggregateLifecycle.apply(
             ItemAddedToOrder(
                 orderId = id,
@@ -57,7 +49,7 @@ class Order {
     }
 
     @CommandHandler
-    fun handle(command: SubmitOrder) {
+    fun handle(command: SubmitOrder, orderTotalCalculator: OrderTotalCalculator) {
         if (status != OrderStatus.NEW) {
             throw IllegalStateException("Cannot submit an order that is not in NEW status")
         }
@@ -68,8 +60,8 @@ class Order {
 
         AggregateLifecycle.apply(
             OrderSubmitted(
-                orderId = id,
-                totalAmount = totalAmount
+                orderId = command.orderId,
+                totalAmount = orderTotalCalculator.calculateTotal(items)
             )
         )
     }
@@ -104,7 +96,6 @@ class Order {
     fun on(event: OrderCreated) {
         id = event.id
         status = OrderStatus.NEW
-        totalAmount = BigDecimal.ZERO
     }
 
     @EventSourcingHandler
@@ -116,12 +107,12 @@ class Order {
             name = event.productName
         )
         items.add(item)
-        totalAmount = totalAmount.add(event.price.multiply(BigDecimal(event.quantity)))
     }
 
     @EventSourcingHandler
     fun on(event: OrderSubmitted) {
         status = OrderStatus.SUBMITTED
+        totalAmount = event.totalAmount
     }
 
     @EventSourcingHandler

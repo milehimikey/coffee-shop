@@ -1,11 +1,11 @@
 package wtf.milehimikey.coffeeshop.orders
 
+import org.javamoney.moneta.Money
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.mongodb.repository.MongoRepository
 import org.springframework.stereotype.Repository
 import java.math.BigDecimal
-import java.time.Instant
 
 @Document(collection = "orders")
 data class OrderDocument(
@@ -13,9 +13,7 @@ data class OrderDocument(
     val customerId: String,
     val items: List<OrderItemDocument> = emptyList(),
     val status: String,
-    val totalAmount: BigDecimal,
-    val createdAt: Instant = Instant.now(),
-    val updatedAt: Instant = Instant.now()
+    val totalAmount: Money? = null,
 )
 
 data class OrderItemDocument(

@@ -324,7 +324,7 @@ class DataGenerator(
                 val paymentId = commandGateway.sendAndWait<String>(
                     CreatePayment(
                         orderId = orderId,
-                        amount = order.totalAmount
+                        amount = order.totalAmount!!.number.numberValue(BigDecimal::class.java)
                     )
                 )
 

@@ -2,18 +2,24 @@ package wtf.milehimikey.coffeeshop.orders
 
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
+import org.javamoney.moneta.Money
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyList
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import java.math.BigDecimal
 
 class OrderCommandTests {
 
     private lateinit var fixture: FixtureConfiguration<Order>
+    private val orderTotalCalculator = mock(OrderTotalCalculator::class.java)
 
     @BeforeEach
     fun setUp() {
         fixture = AggregateTestFixture(Order::class.java)
+        fixture.registerInjectableResource(orderTotalCalculator)
     }
 
     @Test
@@ -65,12 +71,15 @@ class OrderCommandTests {
     fun `should submit order`() {
         val orderId = "order-1"
         val customerId = "customer-1"
+        `when`(orderTotalCalculator.calculateTotal(anyList())).thenReturn(
+            Money.of(BigDecimal("7.00"), "USD")
+        )
 
         val submitCommand = SubmitOrder(orderId = orderId)
 
         val expectedEvent = OrderSubmitted(
             orderId = orderId,
-            totalAmount = BigDecimal("7.00")  // 2 * 3.50 = 7.00
+            totalAmount =  Money.of(BigDecimal("7.00"), "USD")
         )
 
         fixture.given(
@@ -118,7 +127,7 @@ class OrderCommandTests {
                 quantity = 2,
                 price = BigDecimal("3.50")
             ),
-            OrderSubmitted(orderId = orderId, totalAmount = BigDecimal("7.00"))
+            OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
             .`when`(deliverCommand)
             .expectSuccessfulHandlerExecution()
@@ -164,7 +173,7 @@ class OrderCommandTests {
                 quantity = 2,
                 price = BigDecimal("3.50")
             ),
-            OrderSubmitted(orderId = orderId, totalAmount = BigDecimal("7.00")),
+            OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD")),
             OrderDelivered(orderId = orderId)
         )
             .`when`(completeCommand)
@@ -188,7 +197,7 @@ class OrderCommandTests {
                 quantity = 2,
                 price = BigDecimal("3.50")
             ),
-            OrderSubmitted(orderId = orderId, totalAmount = BigDecimal("7.00"))
+            OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
             .`when`(completeCommand)
             .expectException(IllegalStateException::class.java)
@@ -237,7 +246,7 @@ class OrderCommandTests {
             .expectEvents(
                 OrderSubmitted(
                     orderId = orderId,
-                    totalAmount = BigDecimal("60.00") // 60 items at $1.00 each
+                    totalAmount = Money.of(BigDecimal("60.00"), "USD")
                 )
             )
     }

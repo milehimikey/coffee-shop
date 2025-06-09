@@ -1,5 +1,7 @@
 package wtf.milehimikey.coffeeshop.orders
 
+import org.axonframework.serialization.Revision
+import org.javamoney.moneta.Money
 import java.math.BigDecimal
 
 data class OrderCreated(
@@ -15,9 +17,10 @@ data class ItemAddedToOrder(
     val price: BigDecimal
 )
 
+@Revision("2")
 data class OrderSubmitted(
     val orderId: String,
-    val totalAmount: BigDecimal
+    val totalAmount: Money
 )
 
 data class OrderDelivered(

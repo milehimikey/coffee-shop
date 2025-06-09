@@ -4,8 +4,6 @@ import org.axonframework.config.ProcessingGroup
 import org.axonframework.eventhandling.EventHandler
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.math.BigDecimal
-import java.time.Instant
 
 @Component
 @ProcessingGroup("order")
@@ -35,7 +33,6 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
                 customerId = event.customerId,
                 items = emptyList(),
                 status = OrderStatus.NEW.name,
-                totalAmount = BigDecimal.ZERO
             )
         )
     }
@@ -62,15 +59,9 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
                 )
             }
 
-            val newTotalAmount = updatedItems.fold(BigDecimal.ZERO) { acc, item ->
-                acc.add(item.price.multiply(BigDecimal(item.quantity)))
-            }
-
             orderRepository.save(
                 order.copy(
                     items = updatedItems,
-                    totalAmount = newTotalAmount,
-                    updatedAt = Instant.now()
                 )
             )
         }
@@ -90,7 +81,6 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             orderRepository.save(
                 order.copy(
                     status = OrderStatus.SUBMITTED.name,
-                    updatedAt = Instant.now()
                 )
             )
         }
@@ -104,7 +94,6 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             orderRepository.save(
                 order.copy(
                     status = OrderStatus.DELIVERED.name,
-                    updatedAt = Instant.now()
                 )
             )
         }
@@ -118,7 +107,6 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
             orderRepository.save(
                 order.copy(
                     status = OrderStatus.COMPLETED.name,
-                    updatedAt = Instant.now()
                 )
             )
         }
