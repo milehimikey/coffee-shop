@@ -3,6 +3,7 @@ package wtf.milehimikey.coffeeshop.orders
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
 import org.javamoney.moneta.Money
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
@@ -50,7 +51,7 @@ class OrderCommandTests {
             productId = "product-1",
             productName = "Espresso",
             quantity = 2,
-            price = BigDecimal("3.50")
+            price = Money.of(BigDecimal("3.50"), "USD")
         )
 
         val expectedEvent = ItemAddedToOrder(
@@ -58,7 +59,7 @@ class OrderCommandTests {
             productId = "product-1",
             productName = "Espresso",
             quantity = 2,
-            price = BigDecimal("3.50")
+            price = Money.of(BigDecimal("3.50"), "USD")
         )
 
         fixture.given(OrderCreated(id = orderId, customerId = customerId))
@@ -89,7 +90,7 @@ class OrderCommandTests {
                 productId = "product-1",
                 productName = "Espresso",
                 quantity = 2,
-                price = BigDecimal("3.50")
+                price = Money.of(BigDecimal("3.50"), "USD")
             )
         )
             .`when`(submitCommand)
@@ -125,7 +126,7 @@ class OrderCommandTests {
                 productId = "product-1",
                 productName = "Espresso",
                 quantity = 2,
-                price = BigDecimal("3.50")
+                price = Money.of(BigDecimal("3.50"), "USD")
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
@@ -148,7 +149,7 @@ class OrderCommandTests {
                 productId = "product-1",
                 productName = "Espresso",
                 quantity = 2,
-                price = BigDecimal("3.50")
+                price = Money.of(BigDecimal("3.50"), "USD")
             )
         )
             .`when`(deliverCommand)
@@ -171,7 +172,7 @@ class OrderCommandTests {
                 productId = "product-1",
                 productName = "Espresso",
                 quantity = 2,
-                price = BigDecimal("3.50")
+                price = Money.of(BigDecimal("3.50"), "USD")
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD")),
             OrderDelivered(orderId = orderId)
@@ -195,7 +196,7 @@ class OrderCommandTests {
                 productId = "product-1",
                 productName = "Espresso",
                 quantity = 2,
-                price = BigDecimal("3.50")
+                price = Money.of(BigDecimal("3.50"), "USD")
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
@@ -230,7 +231,7 @@ class OrderCommandTests {
                     productId = "product-$i",
                     productName = "Product $i",
                     quantity = 1,
-                    price = BigDecimal("1.00")
+                    price = Money.of(BigDecimal("1.00"), "USD")
                 )
             )
         }
@@ -249,5 +250,19 @@ class OrderCommandTests {
                     totalAmount = Money.of(BigDecimal("60.00"), "USD")
                 )
             )
+    }
+
+    @Test
+    fun `should create ItemAddedToOrderUpcaster`() {
+        // Test that the upcaster can be instantiated
+        val upcaster = ItemAddedToOrderUpcaster()
+        assertNotNull(upcaster)
+    }
+
+    @Test
+    fun `should create OrderSubmittedUpcaster`() {
+        // Test that the upcaster can be instantiated
+        val upcaster = OrderSubmittedUpcaster()
+        assertNotNull(upcaster)
     }
 }

@@ -1,7 +1,7 @@
 package wtf.milehimikey.coffeeshop.orders
 
 import org.axonframework.modelling.command.TargetAggregateIdentifier
-import java.math.BigDecimal
+import org.javamoney.moneta.Money
 import java.util.*
 
 data class CreateOrder(
@@ -14,7 +14,7 @@ data class AddItemToOrder(
     val productId: String,
     val productName: String,
     val quantity: Int,
-    val price: BigDecimal
+    val price: Money
 )
 
 data class SubmitOrder(

@@ -7,7 +7,6 @@ import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.serialization.Revision
 import org.axonframework.spring.stereotype.Aggregate
 import org.javamoney.moneta.Money
-import java.math.BigDecimal
 
 @Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
 @Revision("2")
@@ -129,7 +128,7 @@ class Order {
 data class OrderItem(
     val productId: String,
     val quantity: Int,
-    val price: BigDecimal,
+    val price: Money,
     val name: String
 )
 

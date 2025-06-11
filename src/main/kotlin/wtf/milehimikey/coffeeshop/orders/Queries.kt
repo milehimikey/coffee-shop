@@ -5,7 +5,6 @@ import org.axonframework.queryhandling.QueryHandler
 import org.javamoney.moneta.Money
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.math.BigDecimal
 
 // Queries
 data class FindOrderById(val id: String)
@@ -26,7 +25,7 @@ data class OrderItemView(
     val productId: String,
     val productName: String,
     val quantity: Int,
-    val price: BigDecimal
+    val price: Money
 )
 
 // Query Handlers

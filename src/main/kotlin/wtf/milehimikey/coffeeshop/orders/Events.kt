@@ -2,19 +2,19 @@ package wtf.milehimikey.coffeeshop.orders
 
 import org.axonframework.serialization.Revision
 import org.javamoney.moneta.Money
-import java.math.BigDecimal
 
 data class OrderCreated(
     val id: String,
     val customerId: String
 )
 
+@Revision("2")
 data class ItemAddedToOrder(
     val orderId: String,
     val productId: String,
     val productName: String,
     val quantity: Int,
-    val price: BigDecimal
+    val price: Money
 )
 
 @Revision("2")

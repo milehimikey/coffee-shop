@@ -3,6 +3,7 @@ package wtf.milehimikey.coffeeshop
 import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
+import org.javamoney.moneta.Money
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -137,7 +138,7 @@ class RestEndpoint(
             productId = request.productId,
             productName = request.productName,
             quantity = request.quantity,
-            price = request.price
+            price = Money.of(request.price, "USD")
         )
         return commandGateway.send<String>(command)
             .thenApply { ResponseEntity.ok(orderId) }

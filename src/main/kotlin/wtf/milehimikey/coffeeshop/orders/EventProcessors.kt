@@ -15,7 +15,7 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
      * Special customer ID that will trigger an error in the event processor.
      * Used to demonstrate dead letter queue functionality.
      */
-    private val ERROR_TRIGGERING_CUSTOMER_ID = "error-customer"
+    private val errorCustomer = "error-customer"
 
     @EventHandler
     fun on(event: OrderCreated) {
@@ -23,8 +23,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
 
         // Check if this order should fail
         if (shouldFailOrderProcessing(event.customerId)) {
-            logger.error("Simulated error processing OrderCreated event for order ${event.id} with customer ID $ERROR_TRIGGERING_CUSTOMER_ID")
-            throw RuntimeException("Simulated error processing OrderCreated event for order with customer ID $ERROR_TRIGGERING_CUSTOMER_ID")
+            logger.error("Simulated error processing OrderCreated event for order ${event.id} with customer ID $errorCustomer")
+            throw RuntimeException("Simulated error processing OrderCreated event for order with customer ID $errorCustomer")
         }
 
         orderRepository.save(
@@ -44,8 +44,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
         orderRepository.findById(event.orderId).ifPresent { order ->
             // Check if this order should fail
             if (shouldFailOrderProcessing(order.customerId)) {
-                logger.error("Simulated error processing ItemAddedToOrder event for order ${event.orderId} with customer ID $ERROR_TRIGGERING_CUSTOMER_ID")
-                throw RuntimeException("Simulated error processing ItemAddedToOrder event for order with customer ID $ERROR_TRIGGERING_CUSTOMER_ID")
+                logger.error("Simulated error processing ItemAddedToOrder event for order ${event.orderId} with customer ID $errorCustomer")
+                throw RuntimeException("Simulated error processing ItemAddedToOrder event for order with customer ID $errorCustomer")
             }
 
             val updatedItems = order.items.toMutableList().apply {
@@ -74,8 +74,8 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
         orderRepository.findById(event.orderId).ifPresent { order ->
             // Check if this order should fail
             if (shouldFailOrderProcessing(order.customerId)) {
-                logger.error("Simulated error processing OrderSubmitted event for order ${event.orderId} with customer ID $ERROR_TRIGGERING_CUSTOMER_ID")
-                throw RuntimeException("Simulated error processing OrderSubmitted event for order with customer ID $ERROR_TRIGGERING_CUSTOMER_ID")
+                logger.error("Simulated error processing OrderSubmitted event for order ${event.orderId} with customer ID $errorCustomer")
+                throw RuntimeException("Simulated error processing OrderSubmitted event for order with customer ID $errorCustomer")
             }
 
             orderRepository.save(
@@ -116,6 +116,6 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
      * Helper method to determine if an order should fail processing based on its customer ID.
      */
     private fun shouldFailOrderProcessing(customerId: String): Boolean {
-        return customerId == ERROR_TRIGGERING_CUSTOMER_ID
+        return customerId == errorCustomer
     }
 }

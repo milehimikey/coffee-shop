@@ -11,7 +11,7 @@ class OrderTotalCalculator {
         val subTotal = items.fold(
             Money.of(BigDecimal.ZERO, "USD")
         ) { acc, item ->
-            acc.add(Money.of(item.price.multiply(BigDecimal(item.quantity)), "USD"))
+            acc.add(item.price.multiply(BigDecimal(item.quantity)))
         }
         return subTotal.add(calculateTax(subTotal))
     }

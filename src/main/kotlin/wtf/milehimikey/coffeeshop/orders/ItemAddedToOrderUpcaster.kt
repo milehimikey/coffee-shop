@@ -4,23 +4,23 @@ import org.axonframework.serialization.upcasting.event.IntermediateEventRepresen
 import org.springframework.stereotype.Component
 
 /**
- * Upcaster for OrderSubmitted event to convert totalAmount from BigDecimal to Money.
- * This handles the migration from revision "1" to revision "2" of the OrderSubmitted event.
+ * Upcaster for ItemAddedToOrder event to convert price from BigDecimal to Money.
+ * This handles the migration from revision "1" to revision "2" of the ItemAddedToOrder event.
  */
 @Component
-class OrderSubmittedUpcaster : BaseMoneyUpcaster() {
+class ItemAddedToOrderUpcaster : BaseMoneyUpcaster() {
 
     override fun canUpcast(intermediateRepresentation: IntermediateEventRepresentation): Boolean {
         return canUpcastEvent(
             intermediateRepresentation,
-            "wtf.milehimikey.coffeeshop.orders.OrderSubmitted"
+            "wtf.milehimikey.coffeeshop.orders.ItemAddedToOrder"
         )
     }
 
     override fun doUpcast(intermediateRepresentation: IntermediateEventRepresentation): IntermediateEventRepresentation {
         return upcastPayloadWithMoneyFields(
             intermediateRepresentation,
-            listOf("totalAmount")
+            listOf("price")
         )
     }
 }

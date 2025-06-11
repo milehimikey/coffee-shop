@@ -5,7 +5,6 @@ import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.mongodb.repository.MongoRepository
 import org.springframework.stereotype.Repository
-import java.math.BigDecimal
 
 @Document(collection = "orders")
 data class OrderDocument(
@@ -20,7 +19,7 @@ data class OrderItemDocument(
     val productId: String,
     val productName: String,
     val quantity: Int,
-    val price: BigDecimal
+    val price: Money
 )
 
 @Repository

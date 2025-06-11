@@ -3,6 +3,7 @@ package wtf.milehimikey.coffeeshop
 import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
+import org.javamoney.moneta.Money
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import wtf.milehimikey.coffeeshop.orders.AddItemToOrder
@@ -216,7 +217,7 @@ class DataGenerator(
                         productId = product.id,
                         productName = product.name,
                         quantity = quantity,
-                        price = product.price
+                        price = Money.of(product.price, "USD")
                     )
                 )
 
@@ -478,7 +479,7 @@ class DataGenerator(
                     productId = "test-product",
                     productName = "Test Product",
                     quantity = 1,
-                    price = BigDecimal("13.13")
+                    price = Money.of(BigDecimal("13.13"), "USD")
                 )
             )
 
