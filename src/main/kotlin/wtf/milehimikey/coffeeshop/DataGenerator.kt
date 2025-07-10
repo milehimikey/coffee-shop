@@ -77,7 +77,7 @@ class DataGenerator(
             CreateProduct(
                 name = "${productNames[nameIndex]} #$index",
                 description = "${productDescriptions[descIndex]} - Batch #${UUID.randomUUID().toString().substring(0, 8)}",
-                price = basePrice
+                price = Money.of(basePrice, "USD")
             )
         }
 
@@ -104,14 +104,16 @@ class DataGenerator(
                 // Perform 210 updates (exceeding the snapshot threshold of 200)
                 for (i in 1..210) {
                     // Small price fluctuation (±$0.05)
-                    val priceChange = if (i % 2 == 0) BigDecimal("0.05") else BigDecimal("-0.05")
+                    val priceChange = Money.of(if (i % 2 == 0) BigDecimal("0.05") else BigDecimal("-0.05"), "USD")
                     currentPrice = currentPrice.add(priceChange)
 
                     // Ensure price doesn't go below $2.00 or above $10.00
-                    if (currentPrice < BigDecimal("2.00")) {
-                        currentPrice = BigDecimal("2.00")
-                    } else if (currentPrice > BigDecimal("10.00")) {
-                        currentPrice = BigDecimal("10.00")
+                    val minPrice = Money.of(BigDecimal("2.00"), "USD")
+                    val maxPrice = Money.of(BigDecimal("10.00"), "USD")
+                    if (currentPrice.isLessThan(minPrice)) {
+                        currentPrice = minPrice
+                    } else if (currentPrice.isGreaterThan(maxPrice)) {
+                        currentPrice = maxPrice
                     }
 
                     commandGateway.sendAndWait<String>(
@@ -217,7 +219,7 @@ class DataGenerator(
                         productId = product.id,
                         productName = product.name,
                         quantity = quantity,
-                        price = Money.of(product.price, "USD")
+                        price = product.price
                     )
                 )
 
@@ -532,7 +534,7 @@ class DataGenerator(
                 CreateProduct(
                     name = "Error Triggering Product",
                     description = "This product will trigger a dead letter when updated",
-                    price = BigDecimal("9.99") // Start with a normal price
+                    price = Money.of(BigDecimal("9.99"), "USD") // Start with a normal price
                 )
             )
 
@@ -543,7 +545,7 @@ class DataGenerator(
                         id = productId,
                         name = "Error Triggering Product",
                         description = "This product has been updated with an error-triggering price",
-                        price = BigDecimal("99.99") // This price triggers the error
+                        price = Money.of(BigDecimal("99.99"), "USD") // This price triggers the error
                     )
                 )
             } catch (e: Exception) {

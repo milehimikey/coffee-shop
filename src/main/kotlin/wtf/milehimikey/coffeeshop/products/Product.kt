@@ -5,19 +5,16 @@ import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
-import org.axonframework.serialization.Revision
-import java.math.BigDecimal
-import java.util.*
+import org.javamoney.moneta.Money
 
 @Aggregate(snapshotTriggerDefinition = "productSnapshotTriggerDefinition")
-@Revision("1")
 class Product {
 
     @AggregateIdentifier
     lateinit var id: String
     private lateinit var name: String
     private lateinit var description: String
-    private lateinit var price: BigDecimal
+    private lateinit var price: Money
     private var active: Boolean = true
 
     constructor()  // Required by Axon

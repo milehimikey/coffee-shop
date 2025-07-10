@@ -171,6 +171,22 @@
             </div>
         </div>
         
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">Clear All Data</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-danger">⚠️ This will permanently delete all data from MongoDB. Use with caution!</p>
+                        <form th:action="@{/generator/clear}" method="post" onsubmit="return confirm('Are you sure you want to delete all data? This cannot be undone!')">
+                            <button type="submit" class="btn btn-danger">Clear All MongoDB Data</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="mt-4 mb-5">
             <a href="/" class="btn btn-secondary">Back to Dashboard</a>
         </div>

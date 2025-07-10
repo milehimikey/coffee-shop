@@ -3,7 +3,6 @@ package wtf.milehimikey.coffeeshop.orders
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
 import org.javamoney.moneta.Money
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
@@ -252,17 +251,4 @@ class OrderCommandTests {
             )
     }
 
-    @Test
-    fun `should create ItemAddedToOrderUpcaster`() {
-        // Test that the upcaster can be instantiated
-        val upcaster = ItemAddedToOrderUpcaster()
-        assertNotNull(upcaster)
-    }
-
-    @Test
-    fun `should create OrderSubmittedUpcaster`() {
-        // Test that the upcaster can be instantiated
-        val upcaster = OrderSubmittedUpcaster()
-        assertNotNull(upcaster)
-    }
 }

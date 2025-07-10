@@ -2,8 +2,6 @@ package wtf.milehimikey.coffeeshop.config
 
 import org.axonframework.config.EventProcessingConfiguration
 import org.slf4j.LoggerFactory
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 /**
@@ -11,7 +9,7 @@ import org.springframework.stereotype.Component
  * This attempts to reprocess events that have previously failed and been stored in the dead letter queue.
  */
 @Component
-@EnableScheduling
+//@EnableScheduling
 class DeadLetterProcessor(private val eventProcessingConfiguration: EventProcessingConfiguration) {
 
     private val logger = LoggerFactory.getLogger(DeadLetterProcessor::class.java)
@@ -23,7 +21,7 @@ class DeadLetterProcessor(private val eventProcessingConfiguration: EventProcess
      * Scheduled task that attempts to process any dead-lettered events for all processing groups.
      * Runs every minute with an initial delay of 1 minute after application startup.
      */
-    @Scheduled(fixedDelayString = "60000", initialDelayString = "60000")
+//    @Scheduled(fixedDelayString = "60000", initialDelayString = "60000")
     fun processDeadLetters() {
         logger.info("Attempting to process dead-lettered events for all processing groups")
 

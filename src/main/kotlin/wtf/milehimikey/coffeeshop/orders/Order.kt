@@ -4,12 +4,10 @@ import org.axonframework.commandhandling.CommandHandler
 import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
-import org.axonframework.serialization.Revision
 import org.axonframework.spring.stereotype.Aggregate
 import org.javamoney.moneta.Money
 
 @Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
-@Revision("2")
 class Order {
 
     @AggregateIdentifier
@@ -25,7 +23,8 @@ class Order {
         AggregateLifecycle.apply(
             OrderCreated(
                 id = command.id,
-                customerId = command.customerId
+                customerId = command.customerId,
+                createdAt = java.time.Instant.now()
             )
         )
     }

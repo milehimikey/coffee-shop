@@ -1,15 +1,15 @@
 services:
-  coffee-shop:
-    image: 'milehimikey/coffee-shop:latest'
-    ports:
-      - '8080:8080'
-    environment:
-      - 'SPRING_DATA_MONGODB_HOST=mongodb'
-      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/coffeeshop'
-      - 'SPRING_DOCKER_COMPOSE_ENABLED=false'
-    depends_on:
-      - mongodb
-      - postgres
+#  coffee-shop:
+#    image: 'milehimikey/coffee-shop:latest'
+#    ports:
+#      - '8080:8080'
+#    environment:
+#      - 'SPRING_DATA_MONGODB_HOST=mongodb'
+#      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/coffeeshop'
+#      - 'SPRING_DOCKER_COMPOSE_ENABLED=false'
+#    depends_on:
+#      - mongodb
+#      - postgres
   mongodb:
     image: 'mongo:latest'
     environment:

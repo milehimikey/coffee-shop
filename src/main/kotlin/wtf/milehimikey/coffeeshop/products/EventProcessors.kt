@@ -2,6 +2,7 @@ package wtf.milehimikey.coffeeshop.products
 
 import org.axonframework.config.ProcessingGroup
 import org.axonframework.eventhandling.EventHandler
+import org.javamoney.moneta.Money
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -16,18 +17,18 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
      * Special product price that will trigger an error in the event processor.
      * Used to demonstrate dead letter queue functionality.
      */
-    private val ERROR_TRIGGERING_PRICE = BigDecimal("99.99")
+    private val ERROR_TRIGGERING_PRICE = Money.of(BigDecimal("99.99"), "USD")
 
     @EventHandler
     fun on(event: ProductCreated) {
         logger.info("Processing ProductCreated event for product ${event.id}")
-        
+
         // Check if this product should fail
         if (shouldFailProductProcessing(event.price)) {
             logger.error("Simulated error processing ProductCreated event for product ${event.id} with price $ERROR_TRIGGERING_PRICE")
             throw RuntimeException("Simulated error processing ProductCreated event for product with price $ERROR_TRIGGERING_PRICE")
         }
-        
+
         productRepository.save(
             ProductDocument(
                 id = event.id,
@@ -42,13 +43,13 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
     @EventHandler
     fun on(event: ProductUpdated) {
         logger.info("Processing ProductUpdated event for product ${event.id}")
-        
+
         // Check if this product should fail
         if (shouldFailProductProcessing(event.price)) {
             logger.error("Simulated error processing ProductUpdated event for product ${event.id} with price $ERROR_TRIGGERING_PRICE")
             throw RuntimeException("Simulated error processing ProductUpdated event for product with price $ERROR_TRIGGERING_PRICE")
         }
-        
+
         productRepository.findById(event.id).ifPresent { product ->
             productRepository.save(
                 product.copy(
@@ -67,11 +68,11 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
             productRepository.save(product.copy(active = false))
         }
     }
-    
+
     /**
      * Helper method to determine if a product should fail processing based on its price.
      */
-    private fun shouldFailProductProcessing(price: BigDecimal): Boolean {
-        return price.compareTo(ERROR_TRIGGERING_PRICE) == 0
+    private fun shouldFailProductProcessing(price: Money): Boolean {
+        return price.isEqualTo(ERROR_TRIGGERING_PRICE)
     }
 }

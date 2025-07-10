@@ -53,8 +53,7 @@ class OverviewController(private val queryGateway: QueryGateway) {
                 val totalSales = payments
                     .filter { it.status == "PROCESSED" }
                     .sumOf { it.amount }
-                    .toString()
-                
+
                 SystemOverview(
                     productCount = products.size,
                     orderCount = orders.size,

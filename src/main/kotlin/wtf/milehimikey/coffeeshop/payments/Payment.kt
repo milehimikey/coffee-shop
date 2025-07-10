@@ -5,12 +5,10 @@ import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
-import org.axonframework.serialization.Revision
 import java.math.BigDecimal
 import java.util.*
 
 @Aggregate(snapshotTriggerDefinition = "paymentSnapshotTriggerDefinition")
-@Revision("1")
 class Payment {
 
     @AggregateIdentifier

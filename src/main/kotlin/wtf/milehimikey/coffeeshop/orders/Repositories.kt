@@ -5,14 +5,16 @@ import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.mongodb.repository.MongoRepository
 import org.springframework.stereotype.Repository
+import java.time.Instant
 
 @Document(collection = "orders")
 data class OrderDocument(
     @Id val id: String,
     val customerId: String,
     val items: List<OrderItemDocument> = emptyList(),
-    val status: String,
-    val totalAmount: Money? = null,
+    var status: String,
+    var totalAmount: Money? = null,
+    val createdAt: Instant = Instant.now()
 )
 
 data class OrderItemDocument(

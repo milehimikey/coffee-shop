@@ -1,14 +1,14 @@
 package wtf.milehimikey.coffeeshop.orders
 
-import org.axonframework.serialization.Revision
 import org.javamoney.moneta.Money
+import java.time.Instant
 
 data class OrderCreated(
     val id: String,
-    val customerId: String
+    val customerId: String,
+    val createdAt: Instant = Instant.now()
 )
 
-@Revision("2")
 data class ItemAddedToOrder(
     val orderId: String,
     val productId: String,
@@ -17,7 +17,6 @@ data class ItemAddedToOrder(
     val price: Money
 )
 
-@Revision("2")
 data class OrderSubmitted(
     val orderId: String,
     val totalAmount: Money

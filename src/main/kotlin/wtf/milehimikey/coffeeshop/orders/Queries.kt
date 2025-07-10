@@ -5,6 +5,7 @@ import org.axonframework.queryhandling.QueryHandler
 import org.javamoney.moneta.Money
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 // Queries
 data class FindOrderById(val id: String)
@@ -19,6 +20,7 @@ data class OrderView(
     val items: List<OrderItemView>,
     val status: String,
     val totalAmount: Money?,
+    val createdAt: Instant
 )
 
 data class OrderItemView(
@@ -70,6 +72,7 @@ class OrderQueryHandler(private val orderRepository: OrderRepository) {
             items = this.items.map { it.toView() },
             status = this.status,
             totalAmount = this.totalAmount,
+            createdAt = this.createdAt
         )
     }
 

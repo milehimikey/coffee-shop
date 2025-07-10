@@ -2,9 +2,9 @@ package wtf.milehimikey.coffeeshop.products
 
 import org.axonframework.config.ProcessingGroup
 import org.axonframework.queryhandling.QueryHandler
+import org.javamoney.moneta.Money
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.math.BigDecimal
 
 // Queries
 data class FindProductById(val id: String)
@@ -15,7 +15,7 @@ data class ProductView(
     val id: String,
     val name: String,
     val description: String,
-    val price: BigDecimal,
+    val price: Money,
     val active: Boolean
 )
 

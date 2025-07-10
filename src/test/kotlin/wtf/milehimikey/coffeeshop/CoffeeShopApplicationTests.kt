@@ -111,7 +111,7 @@ class CoffeeShopApplicationTests {
         assertNotNull(response.body)
         assertEquals("Latte", response.body?.name)
         assertEquals("Coffee with steamed milk", response.body?.description)
-        assertEquals(0, BigDecimal("4.00").compareTo(response.body?.price))
+        assertEquals(0, response.body?.price?.number?.numberValue(BigDecimal::class.java)?.compareTo(BigDecimal("4.00")))
     }
 
     @Test
@@ -181,7 +181,7 @@ class CoffeeShopApplicationTests {
         assertEquals(HttpStatus.OK, getResponse.statusCode)
         assertEquals("Mocha Deluxe", getResponse.body?.name)
         assertEquals("Coffee with premium chocolate", getResponse.body?.description)
-        assertEquals(0, BigDecimal("5.25").compareTo(getResponse.body?.price))
+        assertEquals(0, getResponse.body?.price?.number?.numberValue(BigDecimal::class.java)?.compareTo(BigDecimal("5.25")))
     }
 
     @Test

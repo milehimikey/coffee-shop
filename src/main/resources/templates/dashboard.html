@@ -65,13 +65,13 @@
                     <tbody>
                         <tr th:each="order : ${orders}">
                             <td th:text="${order.id}"></td>
-                            <td th:text="${order.customerId}"></td>
+                            <td th:text="${order.customerId ?: 'N/A'}"></td>
                             <td th:text="${order.status}"></td>
-                            <td th:text="${'$' + order.totalAmount}"></td>
+                            <td th:text="${order.totalAmount != null ? '$' + order.totalAmount : 'Pending'}"></td>
                             <td>
                                 <ul>
                                     <li th:each="item : ${order.items}"
-                                        th:text="${item.quantity + ' x ' + item.productName + ' ($' + item.price + ')'}"></li>
+                                        th:text="${item.quantity + ' x ' + item.productName + ' (' + item.price + ')'}"></li>
                                 </ul>
                             </td>
                             <td th:text="${#temporals.format(order.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
@@ -100,7 +100,7 @@
                         <tr th:each="payment : ${payments}">
                             <td th:text="${payment.id}"></td>
                             <td th:text="${payment.orderId}"></td>
-                            <td th:text="${'$' + payment.amount}"></td>
+                            <td th:text="${payment.amount}"></td>
                             <td th:text="${payment.status}"></td>
                             <td th:text="${payment.transactionId != null ? payment.transactionId : '-'}"></td>
                             <td th:text="${payment.failureReason != null ? payment.failureReason : '-'}"></td>

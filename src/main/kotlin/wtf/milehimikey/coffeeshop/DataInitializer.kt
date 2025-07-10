@@ -1,9 +1,7 @@
 package wtf.milehimikey.coffeeshop
 
 import org.slf4j.LoggerFactory
-import org.springframework.boot.context.event.ApplicationStartedEvent
 import org.springframework.context.annotation.Profile
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
 /**
@@ -17,7 +15,7 @@ import org.springframework.stereotype.Component
 class DataInitializer(private val dataGenerator: DataGenerator) {
     private val logger = LoggerFactory.getLogger(DataInitializer::class.java)
 
-    @EventListener(ApplicationStartedEvent::class)
+//    @EventListener(ApplicationStartedEvent::class)
     fun initialize() {
         logger.info("Initializing sample data...")
 
@@ -26,8 +24,8 @@ class DataInitializer(private val dataGenerator: DataGenerator) {
             val result = dataGenerator.generateBatch(
                 productCount = 15,      // Create 15 products
                 orderCount = 300,        // Create 300 orders
-                triggerSnapshots = true, // Trigger snapshots for all aggregate types
-                triggerDeadLetters = true // Trigger dead letters for all processors
+                triggerSnapshots = false, // Trigger snapshots for all aggregate types
+                triggerDeadLetters = false // Trigger dead letters for all processors
             )
 
             logger.info("Sample data initialization completed successfully")

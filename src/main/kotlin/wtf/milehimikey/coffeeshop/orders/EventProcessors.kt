@@ -33,6 +33,7 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
                 customerId = event.customerId,
                 items = emptyList(),
                 status = OrderStatus.NEW.name,
+                createdAt = event.createdAt
             )
         )
     }
@@ -78,11 +79,12 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
                 throw RuntimeException("Simulated error processing OrderSubmitted event for order with customer ID $errorCustomer")
             }
 
-            orderRepository.save(
-                order.copy(
-                    status = OrderStatus.SUBMITTED.name,
-                )
-            )
+            order.status = OrderStatus.SUBMITTED.name
+            order.totalAmount = event.totalAmount
+
+            logger.info("Saving order: {}", order)
+
+            orderRepository.save(order)
         }
     }
 

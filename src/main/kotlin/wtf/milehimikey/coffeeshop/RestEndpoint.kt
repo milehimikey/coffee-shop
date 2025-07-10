@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import wtf.milehimikey.coffeeshop.config.DeadLetterProcessor
+
 import wtf.milehimikey.coffeeshop.orders.AddItemToOrder
 import wtf.milehimikey.coffeeshop.orders.CompleteOrder
 import wtf.milehimikey.coffeeshop.orders.CreateOrder
@@ -50,8 +50,7 @@ import java.util.concurrent.CompletableFuture
 class RestEndpoint(
     private val commandGateway: CommandGateway,
     private val queryGateway: QueryGateway,
-    private val dataGenerator: DataGenerator,
-    private val deadLetterProcessor: DeadLetterProcessor
+    private val dataGenerator: DataGenerator
 ) {
 
     // Product Endpoints
@@ -61,7 +60,7 @@ class RestEndpoint(
         val command = CreateProduct(
             name = request.name,
             description = request.description,
-            price = request.price
+            price = Money.of(request.price, "USD")
         )
         return commandGateway.send<String>(command)
             .thenApply { productId -> ResponseEntity.ok(productId) }
@@ -77,7 +76,7 @@ class RestEndpoint(
             id = id,
             name = request.name,
             description = request.description,
-            price = request.price
+            price = Money.of(request.price, "USD")
         )
         return commandGateway.send<String>(command)
             .thenApply { ResponseEntity.ok(id) }
@@ -337,38 +336,7 @@ class RestEndpoint(
         return ResponseEntity.ok(result)
     }
 
-    @PostMapping("/generate/deadletters")
-    fun triggerDeadLetters(): ResponseEntity<DeadLetterTriggerResult> {
-        val result = dataGenerator.triggerDeadLetters()
-        return ResponseEntity.ok(result)
-    }
 
-    @PostMapping("/generate/deadletters/payment")
-    fun triggerPaymentDeadLetter(): ResponseEntity<String> {
-        val result = dataGenerator.triggerPaymentDeadLetter()
-        return ResponseEntity.ok(result)
-    }
-
-    @PostMapping("/generate/deadletters/product")
-    fun triggerProductDeadLetter(): ResponseEntity<String> {
-        val result = dataGenerator.triggerProductDeadLetter()
-        return ResponseEntity.ok(result)
-    }
-
-    @PostMapping("/generate/deadletters/order")
-    fun triggerOrderDeadLetter(): ResponseEntity<String> {
-        val result = dataGenerator.triggerOrderDeadLetter()
-        return ResponseEntity.ok(result)
-    }
-
-    @PostMapping("/deadletters/process")
-    fun processDeadLetters(@RequestBody request: ProcessDeadLettersRequest): ResponseEntity<Map<String, Int>> {
-        val result = deadLetterProcessor.processDeadLettersManually(
-            processingGroup = request.processingGroup,
-            count = request.count
-        )
-        return ResponseEntity.ok(result)
-    }
 }
 
 // Product Request DTOs
@@ -431,9 +399,4 @@ data class GenerateBatchRequest(
     val orderCount: Int = 50,
     val triggerSnapshots: Boolean = true,
     val triggerDeadLetters: Boolean = true
-)
-
-data class ProcessDeadLettersRequest(
-    val processingGroup: String,
-    val count: Int = 10
 )
