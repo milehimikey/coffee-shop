@@ -1,4 +1,4 @@
-package wtf.milehimikey.coffeeshop
+package wtf.milehimikey.coffeeshop.admin
 
 import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.messaging.responsetypes.ResponseTypes

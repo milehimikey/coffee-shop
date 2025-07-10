@@ -1,12 +1,10 @@
 package wtf.milehimikey.coffeeshop.orders
 
 import org.javamoney.moneta.Money
-import java.time.Instant
 
 data class OrderCreated(
     val id: String,
-    val customerId: String,
-    val createdAt: Instant = Instant.now()
+    val customerId: String
 )
 
 data class ItemAddedToOrder(

@@ -23,8 +23,7 @@ class Order {
         AggregateLifecycle.apply(
             OrderCreated(
                 id = command.id,
-                customerId = command.customerId,
-                createdAt = java.time.Instant.now()
+                customerId = command.customerId
             )
         )
     }

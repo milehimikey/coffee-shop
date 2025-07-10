@@ -1,4 +1,4 @@
-package wtf.milehimikey.coffeeshop
+package wtf.milehimikey.coffeeshop.admin
 
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
@@ -14,7 +14,7 @@ import wtf.milehimikey.coffeeshop.products.ProductView
 
 @Controller
 class DashboardController(private val queryGateway: QueryGateway) {
-    
+
     @GetMapping("/")
     fun dashboard(model: Model): String {
         // Get all products
@@ -22,23 +22,23 @@ class DashboardController(private val queryGateway: QueryGateway) {
             FindAllProducts(includeInactive = false),
             ResponseTypes.multipleInstancesOf(ProductView::class.java)
         ).join()
-        
+
         // Get all orders
         val orders = queryGateway.query(
             FindAllOrders(),
             ResponseTypes.multipleInstancesOf(OrderView::class.java)
         ).join()
-        
+
         // Get all payments
         val payments = queryGateway.query(
             FindAllPayments(),
             ResponseTypes.multipleInstancesOf(PaymentView::class.java)
         ).join()
-        
+
         model.addAttribute("products", products)
         model.addAttribute("orders", orders)
         model.addAttribute("payments", payments)
-        
+
         return "dashboard"
     }
 }

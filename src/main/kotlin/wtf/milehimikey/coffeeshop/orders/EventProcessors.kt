@@ -2,8 +2,10 @@ package wtf.milehimikey.coffeeshop.orders
 
 import org.axonframework.config.ProcessingGroup
 import org.axonframework.eventhandling.EventHandler
+import org.axonframework.eventhandling.Timestamp
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.Instant
 
 @Component
 @ProcessingGroup("order")
@@ -18,7 +20,7 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
     private val errorCustomer = "error-customer"
 
     @EventHandler
-    fun on(event: OrderCreated) {
+    fun on(event: OrderCreated, @Timestamp timestamp: Instant) {
         logger.info("Processing OrderCreated event for order ${event.id}")
 
         // Check if this order should fail
@@ -33,7 +35,7 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
                 customerId = event.customerId,
                 items = emptyList(),
                 status = OrderStatus.NEW.name,
-                createdAt = event.createdAt
+                createdAt = timestamp
             )
         )
     }

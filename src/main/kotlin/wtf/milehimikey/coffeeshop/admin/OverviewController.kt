@@ -1,4 +1,4 @@
-package wtf.milehimikey.coffeeshop
+package wtf.milehimikey.coffeeshop.admin
 
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture
 @RestController
 @RequestMapping("/api/overview")
 class OverviewController(private val queryGateway: QueryGateway) {
-    
+
     data class SystemOverview(
         val productCount: Int,
         val orderCount: Int,
@@ -26,30 +26,30 @@ class OverviewController(private val queryGateway: QueryGateway) {
         val orders: List<OrderView>,
         val payments: List<PaymentView>
     )
-    
+
     @GetMapping
     fun getOverview(): CompletableFuture<SystemOverview> {
         val productsQuery = queryGateway.query(
             FindAllProducts(includeInactive = false),
             ResponseTypes.multipleInstancesOf(ProductView::class.java)
         )
-        
+
         val ordersQuery = queryGateway.query(
             FindAllOrders(),
             ResponseTypes.multipleInstancesOf(OrderView::class.java)
         )
-        
+
         val paymentsQuery = queryGateway.query(
             FindAllPayments(),
             ResponseTypes.multipleInstancesOf(PaymentView::class.java)
         )
-        
+
         return CompletableFuture.allOf(productsQuery, ordersQuery, paymentsQuery)
             .thenApply {
                 val products = productsQuery.join()
                 val orders = ordersQuery.join()
                 val payments = paymentsQuery.join()
-                
+
                 val totalSales = payments
                     .filter { it.status == "PROCESSED" }
                     .sumOf { it.amount }

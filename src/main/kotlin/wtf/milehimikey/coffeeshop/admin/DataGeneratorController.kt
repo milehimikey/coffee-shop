@@ -1,4 +1,4 @@
-package wtf.milehimikey.coffeeshop
+package wtf.milehimikey.coffeeshop.admin
 
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
