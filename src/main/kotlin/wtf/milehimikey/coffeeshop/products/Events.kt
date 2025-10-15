@@ -7,7 +7,8 @@ data class ProductCreated(
     val id: String,
     val name: String,
     val description: String,
-    val price: Money
+    val price: Money,
+    val sku: String? = null  // Optional for backward compatibility with old events
 )
 
 data class ProductUpdated(

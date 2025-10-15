@@ -12,6 +12,7 @@ data class ProductDocument(
     val name: String,
     val description: String,
     val price: Money,
+    val sku: String,
     val active: Boolean = true
 )
 

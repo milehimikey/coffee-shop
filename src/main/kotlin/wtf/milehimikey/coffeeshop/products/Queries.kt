@@ -16,6 +16,7 @@ data class ProductView(
     val name: String,
     val description: String,
     val price: Money,
+    val sku: String,
     val active: Boolean
 )
 
@@ -48,6 +49,7 @@ class ProductQueryHandler(private val productRepository: ProductRepository) {
             name = this.name,
             description = this.description,
             price = this.price,
+            sku = this.sku,
             active = this.active
         )
     }

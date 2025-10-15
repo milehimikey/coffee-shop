@@ -21,7 +21,7 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
 
     @EventHandler
     fun on(event: ProductCreated) {
-        logger.info("Processing ProductCreated event for product ${event.id}")
+        logger.info("Processing ProductCreated event for product ${event.id} with SKU ${event.sku}")
 
         // Check if this product should fail
         if (shouldFailProductProcessing(event.price)) {
@@ -29,12 +29,16 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
             throw RuntimeException("Simulated error processing ProductCreated event for product with price $ERROR_TRIGGERING_PRICE")
         }
 
+        // SKU should always be present due to upcaster
+        val sku = event.sku ?: throw IllegalStateException("ProductCreated event missing SKU field for product ${event.id}")
+
         productRepository.save(
             ProductDocument(
                 id = event.id,
                 name = event.name,
                 description = event.description,
                 price = event.price,
+                sku = sku,
                 active = true
             )
         )

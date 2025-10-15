@@ -8,7 +8,8 @@ data class CreateProduct(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val description: String,
-    val price: Money
+    val price: Money,
+    val sku: String
 )
 
 data class UpdateProduct(

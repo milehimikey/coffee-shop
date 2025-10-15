@@ -63,7 +63,8 @@ class RestEndpoint(
         val command = CreateProduct(
             name = request.name,
             description = request.description,
-            price = Money.of(request.price, "USD")
+            price = Money.of(request.price, "USD"),
+            sku = request.sku
         )
         return commandGateway.send<String>(command)
             .thenApply { productId -> ResponseEntity.ok(productId) }
@@ -373,7 +374,8 @@ class RestEndpoint(
 data class CreateProductRequest(
     val name: String,
     val description: String,
-    val price: BigDecimal
+    val price: BigDecimal,
+    val sku: String
 )
 
 data class UpdateProductRequest(

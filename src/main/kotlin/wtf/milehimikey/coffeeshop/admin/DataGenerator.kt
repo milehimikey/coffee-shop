@@ -77,7 +77,8 @@ class DataGenerator(
             CreateProduct(
                 name = "${productNames[nameIndex]} #$index",
                 description = "${productDescriptions[descIndex]} - Batch #${UUID.randomUUID().toString().substring(0, 8)}",
-                price = Money.of(basePrice, "USD")
+                price = Money.of(basePrice, "USD"),
+                sku = "SKU-${productNames[nameIndex].take(3).uppercase()}-${String.format("%03d", index)}"
             )
         }
 
@@ -534,7 +535,8 @@ class DataGenerator(
                 CreateProduct(
                     name = "Error Triggering Product",
                     description = "This product will trigger a dead letter when updated",
-                    price = Money.of(BigDecimal("9.99"), "USD") // Start with a normal price
+                    price = Money.of(BigDecimal("9.99"), "USD"), // Start with a normal price
+                    sku = "ERR-TRIGGER-001"
                 )
             )
 

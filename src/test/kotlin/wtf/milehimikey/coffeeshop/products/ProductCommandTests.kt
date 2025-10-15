@@ -25,14 +25,16 @@ class ProductCommandTests {
             id = "product-1",
             name = "Espresso",
             description = "Strong coffee",
-            price = Money.of(BigDecimal("3.50"), "USD")
+            price = Money.of(BigDecimal("3.50"), "USD"),
+            sku = "ESP-001"
         )
 
         val expectedEvent = ProductCreated(
             id = "product-1",
             name = "Espresso",
             description = "Strong coffee",
-            price = Money.of(BigDecimal("3.50"), "USD")
+            price = Money.of(BigDecimal("3.50"), "USD"),
+            sku = "ESP-001"
         )
 
         fixture.givenNoPriorActivity()
@@ -48,7 +50,8 @@ class ProductCommandTests {
             id = id,
             name = "Espresso",
             description = "Strong coffee",
-            price = Money.of(BigDecimal("3.50"), "USD")
+            price = Money.of(BigDecimal("3.50"), "USD"),
+            sku = "ESP-001"
         )
 
         val updateCommand = UpdateProduct(
@@ -70,7 +73,8 @@ class ProductCommandTests {
                 id = id,
                 name = "Espresso",
                 description = "Strong coffee",
-                price = Money.of(BigDecimal("3.50"), "USD")
+                price = Money.of(BigDecimal("3.50"), "USD"),
+                sku = "ESP-001"
             )
         )
             .`when`(updateCommand)
@@ -84,6 +88,7 @@ class ProductCommandTests {
         val name = "Espresso"
         val description = "Strong coffee"
         val price = Money.of(BigDecimal("3.50"), "USD")
+        val sku = "ESP-001"
         val deleteCommand = DeleteProduct(id = id)
 
         fixture.given(
@@ -91,7 +96,8 @@ class ProductCommandTests {
                 id = id,
                 name = name,
                 description = description,
-                price = price
+                price = price,
+                sku = sku
             )
         )
             .`when`(deleteCommand)
@@ -121,7 +127,8 @@ class ProductCommandTests {
                 id = id,
                 name = "Espresso",
                 description = "Strong coffee",
-                price = Money.of(BigDecimal("3.50"), "USD")
+                price = Money.of(BigDecimal("3.50"), "USD"),
+                sku = "ESP-001"
             ),
             ProductDeleted(
                 id = id,
@@ -145,7 +152,8 @@ class ProductCommandTests {
                 id = id,
                 name = "Espresso",
                 description = "Strong coffee",
-                price = Money.of(BigDecimal("3.50"), "USD")
+                price = Money.of(BigDecimal("3.50"), "USD"),
+                sku = "ESP-001"
             ),
             ProductDeleted(
                 id = id,

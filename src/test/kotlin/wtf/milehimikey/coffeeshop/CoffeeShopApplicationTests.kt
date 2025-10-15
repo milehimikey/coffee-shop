@@ -45,7 +45,8 @@ class CoffeeShopApplicationTests {
         val request = CreateProductRequest(
             name = "Cappuccino",
             description = "Coffee with milk foam",
-            price = BigDecimal("4.50")
+            price = BigDecimal("4.50"),
+            sku = "CAP-001"
         )
 
         // When
@@ -77,7 +78,8 @@ class CoffeeShopApplicationTests {
         val createRequest = CreateProductRequest(
             name = "Latte",
             description = "Coffee with steamed milk",
-            price = BigDecimal("4.00")
+            price = BigDecimal("4.00"),
+            sku = "LAT-001"
         )
 
         val createResponse = restTemplate.postForEntity(
@@ -120,7 +122,8 @@ class CoffeeShopApplicationTests {
         val createRequest = CreateProductRequest(
             name = "Mocha",
             description = "Coffee with chocolate",
-            price = BigDecimal("4.75")
+            price = BigDecimal("4.75"),
+            sku = "MOC-001"
         )
 
         val createResponse = restTemplate.postForEntity(
@@ -190,7 +193,8 @@ class CoffeeShopApplicationTests {
         val createRequest = CreateProductRequest(
             name = "Americano",
             description = "Espresso with water",
-            price = BigDecimal("3.75")
+            price = BigDecimal("3.75"),
+            sku = "AME-001"
         )
 
         val createResponse = restTemplate.postForEntity(
@@ -250,9 +254,9 @@ class CoffeeShopApplicationTests {
     fun `should get all products`() {
         // Given
         val products = listOf(
-            CreateProductRequest("Espresso", "Strong coffee", BigDecimal("3.50")),
-            CreateProductRequest("Latte", "Coffee with steamed milk", BigDecimal("4.00")),
-            CreateProductRequest("Cappuccino", "Coffee with milk foam", BigDecimal("4.50"))
+            CreateProductRequest("Espresso", "Strong coffee", BigDecimal("3.50"), "ESP-001"),
+            CreateProductRequest("Latte", "Coffee with steamed milk", BigDecimal("4.00"), "LAT-002"),
+            CreateProductRequest("Cappuccino", "Coffee with milk foam", BigDecimal("4.50"), "CAP-002")
         )
 
         products.forEach { product ->
@@ -874,7 +878,8 @@ class CoffeeShopApplicationTests {
         val productRequest = CreateProductRequest(
             name = "Idempotency Test Product",
             description = "Testing idempotent event processing",
-            price = BigDecimal("5.99")
+            price = BigDecimal("5.99"),
+            sku = "IDP-TEST-001"
         )
 
         val productResponse = restTemplate.postForEntity(

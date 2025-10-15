@@ -16,6 +16,7 @@ class Product {
     private lateinit var name: String
     private lateinit var description: String
     private lateinit var price: Money
+    private lateinit var sku: String
     private var active: Boolean = true
 
     constructor()  // Required by Axon
@@ -27,7 +28,8 @@ class Product {
                 id = command.id,
                 name = command.name,
                 description = command.description,
-                price = command.price
+                price = command.price,
+                sku = command.sku
             )
         )
     }
@@ -71,6 +73,8 @@ class Product {
         name = event.name
         description = event.description
         price = event.price
+        // SKU will be provided by upcaster for old events, or directly from new events
+        sku = event.sku ?: throw IllegalStateException("ProductCreated event missing SKU field")
         active = true
     }
 
