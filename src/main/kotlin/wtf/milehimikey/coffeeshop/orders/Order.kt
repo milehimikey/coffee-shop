@@ -103,6 +103,34 @@ class Order {
         )
     }
 
+    /**
+     * Command handler for correcting product names.
+     * This demonstrates the event sourcing pattern of using compensating events
+     * to fix data quality issues without modifying historical events.
+     */
+    @CommandHandler
+    fun handle(command: CorrectOrderItemProductName) {
+        // Find the item with the specified productId
+        val item = items.find { it.productId == command.productId }
+            ?: throw IllegalArgumentException("Order item with productId ${command.productId} not found in order $id")
+
+        // Validate the corrected name is not blank
+        if (command.correctedProductName.isBlank()) {
+            throw IllegalArgumentException("Corrected product name cannot be blank")
+        }
+
+        // Emit the compensating event
+        AggregateLifecycle.apply(
+            OrderItemProductNameCorrected(
+                orderId = id,
+                productId = command.productId,
+                oldProductName = item.name,
+                correctedProductName = command.correctedProductName,
+                correctedAt = Instant.now()
+            )
+        )
+    }
+
     @EventSourcingHandler
     fun on(event: OrderCreated) {
         id = event.id
@@ -137,13 +165,28 @@ class Order {
     fun on(event: OrderCompleted) {
         status = OrderStatus.COMPLETED
     }
+
+    /**
+     * Event sourcing handler for product name corrections.
+     * This handler is called both when the event is first published AND
+     * when the aggregate is replayed from the event store.
+     * This ensures the correction is applied consistently.
+     */
+    @EventSourcingHandler
+    fun on(event: OrderItemProductNameCorrected) {
+        // Find the item and update its name
+        val item = items.find { it.productId == event.productId }
+        item?.let {
+            it.name = event.correctedProductName
+        }
+    }
 }
 
 data class OrderItem(
     val productId: String,
     val quantity: Int,
     val price: Money,
-    val name: String
+    var name: String  // var instead of val to allow correction
 ) {
     fun toOrderItemData(): OrderItemData {
         return OrderItemData(

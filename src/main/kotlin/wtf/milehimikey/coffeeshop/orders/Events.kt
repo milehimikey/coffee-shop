@@ -56,3 +56,19 @@ data class OrderItemData(
     val quantity: Int,
     val price: Money
 )
+
+/**
+ * Compensating event representing a correction to an order item's product name.
+ * This event is used to fix incorrect or null product names that were stored
+ * in previous ItemAddedToOrder events.
+ *
+ * This demonstrates the event sourcing principle of using compensating events
+ * rather than modifying historical events, maintaining a complete audit trail.
+ */
+data class OrderItemProductNameCorrected(
+    val orderId: String,
+    val productId: String,
+    val oldProductName: String?,
+    val correctedProductName: String,
+    val correctedAt: Instant
+)

@@ -28,3 +28,14 @@ data class DeliverOrder(
 data class CompleteOrder(
     @TargetAggregateIdentifier val orderId: String
 )
+
+/**
+ * Command to correct an incorrect product name for an order item.
+ * This is used to fix data quality issues where product names were
+ * null or incorrect in the original ItemAddedToOrder events.
+ */
+data class CorrectOrderItemProductName(
+    @TargetAggregateIdentifier val orderId: String,
+    val productId: String,
+    val correctedProductName: String
+)

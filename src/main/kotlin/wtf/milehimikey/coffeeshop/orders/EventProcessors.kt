@@ -119,6 +119,35 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
     }
 
     /**
+     * Event handler for product name corrections.
+     * Updates the MongoDB read model to reflect the corrected product name.
+     * This demonstrates how compensating events update both the aggregate
+     * (via event sourcing) and the read model (via event handlers).
+     */
+    @EventHandler
+    fun on(event: OrderItemProductNameCorrected) {
+        logger.info("Processing OrderItemProductNameCorrected event for order ${event.orderId}, productId ${event.productId}")
+        logger.info("Correcting product name from '${event.oldProductName}' to '${event.correctedProductName}'")
+
+        orderRepository.findById(event.orderId).ifPresent { order ->
+            // Find and update the item with the corrected product name
+            val updatedItems = order.items.map { item ->
+                if (item.productId == event.productId) {
+                    item.copy(productName = event.correctedProductName)
+                } else {
+                    item
+                }
+            }
+
+            orderRepository.save(
+                order.copy(items = updatedItems)
+            )
+
+            logger.info("Successfully updated product name in read model for order ${event.orderId}")
+        }
+    }
+
+    /**
      * Helper method to determine if an order should fail processing based on its customer ID.
      */
     private fun shouldFailOrderProcessing(customerId: String): Boolean {

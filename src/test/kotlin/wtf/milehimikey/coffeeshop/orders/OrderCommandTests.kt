@@ -284,4 +284,166 @@ class OrderCommandTests {
             )
     }
 
+    // Product Name Correction Tests - Demonstrating Compensating Events
+
+    @Test
+    fun `should correct product name with compensating event`() {
+        val orderId = "order-1"
+        val customerId = "customer-1"
+        val productId = "product-1"
+
+        val correctCommand = CorrectOrderItemProductName(
+            orderId = orderId,
+            productId = productId,
+            correctedProductName = "Espresso"
+        )
+
+        fixture.given(
+            OrderCreated(id = orderId, customerId = customerId),
+            ItemAddedToOrder(
+                orderId = orderId,
+                productId = productId,
+                productName = "Bad Name",  // Original bad name
+                quantity = 2,
+                price = Money.of(BigDecimal("3.50"), "USD")
+            )
+        )
+            .`when`(correctCommand)
+            .expectSuccessfulHandlerExecution()
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<OrderItemProductNameCorrected> { event ->
+                    event.orderId == orderId &&
+                    event.productId == productId &&
+                    event.oldProductName == "Bad Name" &&
+                    event.correctedProductName == "Espresso"
+                }
+            )))
+    }
+
+    @Test
+    fun `should correct null product name with compensating event`() {
+        val orderId = "order-1"
+        val customerId = "customer-1"
+        val productId = "product-1"
+
+        val correctCommand = CorrectOrderItemProductName(
+            orderId = orderId,
+            productId = productId,
+            correctedProductName = "Cappuccino"
+        )
+
+        fixture.given(
+            OrderCreated(id = orderId, customerId = customerId),
+            ItemAddedToOrder(
+                orderId = orderId,
+                productId = productId,
+                productName = "",  // Empty/null name
+                quantity = 1,
+                price = Money.of(BigDecimal("4.50"), "USD")
+            )
+        )
+            .`when`(correctCommand)
+            .expectSuccessfulHandlerExecution()
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<OrderItemProductNameCorrected> { event ->
+                    event.orderId == orderId &&
+                    event.productId == productId &&
+                    event.oldProductName == "" &&
+                    event.correctedProductName == "Cappuccino"
+                }
+            )))
+    }
+
+    @Test
+    fun `should fail to correct product name for non-existent item`() {
+        val orderId = "order-1"
+        val customerId = "customer-1"
+
+        val correctCommand = CorrectOrderItemProductName(
+            orderId = orderId,
+            productId = "non-existent-product",
+            correctedProductName = "Espresso"
+        )
+
+        fixture.given(
+            OrderCreated(id = orderId, customerId = customerId),
+            ItemAddedToOrder(
+                orderId = orderId,
+                productId = "product-1",
+                productName = "Latte",
+                quantity = 1,
+                price = Money.of(BigDecimal("4.00"), "USD")
+            )
+        )
+            .`when`(correctCommand)
+            .expectException(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `should fail to correct product name with blank name`() {
+        val orderId = "order-1"
+        val customerId = "customer-1"
+        val productId = "product-1"
+
+        val correctCommand = CorrectOrderItemProductName(
+            orderId = orderId,
+            productId = productId,
+            correctedProductName = "   "  // Blank name
+        )
+
+        fixture.given(
+            OrderCreated(id = orderId, customerId = customerId),
+            ItemAddedToOrder(
+                orderId = orderId,
+                productId = productId,
+                productName = "Bad Name",
+                quantity = 1,
+                price = Money.of(BigDecimal("3.50"), "USD")
+            )
+        )
+            .`when`(correctCommand)
+            .expectException(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `should apply correction during aggregate replay - demonstrating event sourcing`() {
+        val orderId = "order-1"
+        val customerId = "customer-1"
+        val productId = "product-1"
+
+        // This test demonstrates that when an aggregate is replayed from events,
+        // the correction event is applied, resulting in the corrected state
+        val deliverCommand = DeliverOrder(orderId = orderId)
+
+        fixture.given(
+            OrderCreated(id = orderId, customerId = customerId),
+            ItemAddedToOrder(
+                orderId = orderId,
+                productId = productId,
+                productName = "Bad Name",  // Original bad name
+                quantity = 2,
+                price = Money.of(BigDecimal("3.50"), "USD")
+            ),
+            OrderItemProductNameCorrected(
+                orderId = orderId,
+                productId = productId,
+                oldProductName = "Bad Name",
+                correctedProductName = "Espresso",  // Corrected name
+                correctedAt = Instant.now()
+            ),
+            OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
+        )
+            .`when`(deliverCommand)
+            .expectSuccessfulHandlerExecution()
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<OrderDelivered> { event ->
+                    // The delivered event should contain the CORRECTED product name
+                    event.orderId == orderId &&
+                    event.items.size == 1 &&
+                    event.items[0].productId == productId &&
+                    event.items[0].productName == "Espresso"  // Corrected name, not "Bad Name"
+                }
+            )))
+    }
+
 }

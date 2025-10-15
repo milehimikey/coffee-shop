@@ -20,6 +20,7 @@ import wtf.milehimikey.coffeeshop.admin.DataGenerator
 
 import wtf.milehimikey.coffeeshop.orders.AddItemToOrder
 import wtf.milehimikey.coffeeshop.orders.CompleteOrder
+import wtf.milehimikey.coffeeshop.orders.CorrectOrderItemProductName
 import wtf.milehimikey.coffeeshop.orders.CreateOrder
 import wtf.milehimikey.coffeeshop.orders.DeliverOrder
 import wtf.milehimikey.coffeeshop.orders.FindAllOrders
@@ -205,6 +206,33 @@ class RestEndpoint(
         }
     }
 
+    // Admin Endpoints for Order Corrections
+
+    /**
+     * Admin endpoint to correct a product name for an order item.
+     * This demonstrates the event sourcing pattern of using compensating events
+     * to fix data quality issues without modifying historical events.
+     *
+     * Example usage:
+     * POST /api/admin/orders/{orderId}/items/{productId}/correct-name
+     * Body: {"correctedProductName": "Espresso"}
+     */
+    @PostMapping("/admin/orders/{orderId}/items/{productId}/correct-name")
+    fun correctProductName(
+        @PathVariable orderId: String,
+        @PathVariable productId: String,
+        @RequestBody request: CorrectProductNameRequest
+    ): CompletableFuture<ResponseEntity<String>> {
+        val command = CorrectOrderItemProductName(
+            orderId = orderId,
+            productId = productId,
+            correctedProductName = request.correctedProductName
+        )
+        return commandGateway.send<String>(command)
+            .thenApply { ResponseEntity.ok("Product name corrected successfully for order $orderId, product $productId") }
+            .exceptionally { e -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: ${e.message}") }
+    }
+
     // Payment Endpoints
 
     @PostMapping("/payments")
@@ -364,6 +392,10 @@ data class AddItemToOrderRequest(
     val productName: String,
     val quantity: Int,
     val price: BigDecimal
+)
+
+data class CorrectProductNameRequest(
+    val correctedProductName: String
 )
 
 // Payment Request DTOs

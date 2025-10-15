@@ -679,6 +679,190 @@ class CoffeeShopApplicationTests {
         }
     }
 
+    // Product Name Correction Tests - Demonstrating Compensating Events
+
+    @Test
+    fun `should correct product name using compensating event`() {
+        // Given - Create an order with a bad product name
+        val createOrderRequest = CreateOrderRequest(
+            customerId = "customer-correction-test"
+        )
+
+        val createOrderResponse = restTemplate.postForEntity(
+            "/api/orders",
+            createOrderRequest,
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, createOrderResponse.statusCode)
+        val orderId = createOrderResponse.body
+        assertNotNull(orderId)
+
+        // Wait for order creation
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val orderResponse = restTemplate.getForEntity(
+                "/api/orders/{id}",
+                OrderView::class.java,
+                orderId
+            )
+            assertEquals(HttpStatus.OK, orderResponse.statusCode)
+        }
+
+        // Add item with bad product name
+        val addItemRequest = AddItemToOrderRequest(
+            productId = "product-correction-test",
+            productName = "Bad Product Name",  // This is the bad name we'll correct
+            quantity = 2,
+            price = BigDecimal("3.50")
+        )
+
+        restTemplate.postForEntity(
+            "/api/orders/{orderId}/items",
+            addItemRequest,
+            String::class.java,
+            orderId
+        )
+
+        // Wait for item to be added
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val orderResponse = restTemplate.getForEntity(
+                "/api/orders/{id}",
+                OrderView::class.java,
+                orderId
+            )
+            assertEquals(HttpStatus.OK, orderResponse.statusCode)
+            assertNotNull(orderResponse.body)
+            assertEquals(1, orderResponse.body?.items?.size)
+            assertEquals("Bad Product Name", orderResponse.body?.items?.get(0)?.productName)
+        }
+
+        // When - Correct the product name using the admin endpoint
+        val correctRequest = CorrectProductNameRequest(
+            correctedProductName = "Espresso"
+        )
+
+        val correctResponse = restTemplate.postForEntity(
+            "/api/admin/orders/{orderId}/items/{productId}/correct-name",
+            correctRequest,
+            String::class.java,
+            orderId,
+            "product-correction-test"
+        )
+
+        // Then - Verify the correction was successful
+        assertEquals(HttpStatus.OK, correctResponse.statusCode)
+
+        // Wait for the correction event to be processed
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val orderResponse = restTemplate.getForEntity(
+                "/api/orders/{id}",
+                OrderView::class.java,
+                orderId
+            )
+            assertEquals(HttpStatus.OK, orderResponse.statusCode)
+            assertNotNull(orderResponse.body)
+            assertEquals(1, orderResponse.body?.items?.size)
+            // The product name should now be corrected
+            assertEquals("Espresso", orderResponse.body?.items?.get(0)?.productName)
+        }
+
+        // Verify the final state
+        val finalOrderResponse = restTemplate.getForEntity(
+            "/api/orders/{id}",
+            OrderView::class.java,
+            orderId
+        )
+
+        assertEquals(HttpStatus.OK, finalOrderResponse.statusCode)
+        assertNotNull(finalOrderResponse.body)
+        assertEquals(1, finalOrderResponse.body?.items?.size)
+        assertEquals("Espresso", finalOrderResponse.body?.items?.get(0)?.productName)
+        assertEquals("product-correction-test", finalOrderResponse.body?.items?.get(0)?.productId)
+        assertEquals(2, finalOrderResponse.body?.items?.get(0)?.quantity)
+    }
+
+    @Test
+    fun `should correct null product name using compensating event`() {
+        // Given - Create an order with a null/empty product name
+        val createOrderRequest = CreateOrderRequest(
+            customerId = "customer-null-correction"
+        )
+
+        val createOrderResponse = restTemplate.postForEntity(
+            "/api/orders",
+            createOrderRequest,
+            String::class.java
+        )
+        assertEquals(HttpStatus.OK, createOrderResponse.statusCode)
+        val orderId = createOrderResponse.body
+        assertNotNull(orderId)
+
+        // Wait for order creation
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val orderResponse = restTemplate.getForEntity(
+                "/api/orders/{id}",
+                OrderView::class.java,
+                orderId
+            )
+            assertEquals(HttpStatus.OK, orderResponse.statusCode)
+        }
+
+        // Add item with empty product name
+        val addItemRequest = AddItemToOrderRequest(
+            productId = "product-null-test",
+            productName = "",  // Empty/null name
+            quantity = 1,
+            price = BigDecimal("4.50")
+        )
+
+        restTemplate.postForEntity(
+            "/api/orders/{orderId}/items",
+            addItemRequest,
+            String::class.java,
+            orderId
+        )
+
+        // Wait for item to be added
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val orderResponse = restTemplate.getForEntity(
+                "/api/orders/{id}",
+                OrderView::class.java,
+                orderId
+            )
+            assertEquals(HttpStatus.OK, orderResponse.statusCode)
+            assertNotNull(orderResponse.body)
+            assertEquals(1, orderResponse.body?.items?.size)
+        }
+
+        // When - Correct the product name
+        val correctRequest = CorrectProductNameRequest(
+            correctedProductName = "Cappuccino"
+        )
+
+        val correctResponse = restTemplate.postForEntity(
+            "/api/admin/orders/{orderId}/items/{productId}/correct-name",
+            correctRequest,
+            String::class.java,
+            orderId,
+            "product-null-test"
+        )
+
+        // Then - Verify the correction
+        assertEquals(HttpStatus.OK, correctResponse.statusCode)
+
+        // Wait for the correction event to be processed
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            val orderResponse = restTemplate.getForEntity(
+                "/api/orders/{id}",
+                OrderView::class.java,
+                orderId
+            )
+            assertEquals(HttpStatus.OK, orderResponse.statusCode)
+            assertNotNull(orderResponse.body)
+            assertEquals(1, orderResponse.body?.items?.size)
+            assertEquals("Cappuccino", orderResponse.body?.items?.get(0)?.productName)
+        }
+    }
+
     // Idempotency Interceptor Tests
 
     @Test
