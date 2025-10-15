@@ -2,6 +2,9 @@ package wtf.milehimikey.coffeeshop.orders
 
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
+import org.axonframework.test.matchers.Matchers.exactSequenceOf
+import org.axonframework.test.matchers.Matchers.payloadsMatching
+import org.axonframework.test.matchers.Matchers.predicate
 import org.javamoney.moneta.Money
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
@@ -10,6 +13,7 @@ import org.mockito.ArgumentMatchers.anyList
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 import java.math.BigDecimal
+import java.time.Instant
 
 class OrderCommandTests {
 
@@ -116,8 +120,6 @@ class OrderCommandTests {
 
         val deliverCommand = DeliverOrder(orderId = orderId)
 
-        val expectedEvent = OrderDelivered(orderId = orderId)
-
         fixture.given(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
@@ -131,7 +133,17 @@ class OrderCommandTests {
         )
             .`when`(deliverCommand)
             .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<OrderDelivered> { event ->
+                    event.orderId == orderId &&
+                    event.customerId == customerId &&
+                    event.items.size == 1 &&
+                    event.items[0].productId == "product-1" &&
+                    event.items[0].productName == "Espresso" &&
+                    event.items[0].quantity == 2 &&
+                    event.totalAmount == Money.of(BigDecimal("7.00"), "USD")
+                }
+            )))
     }
 
     @Test
@@ -162,8 +174,6 @@ class OrderCommandTests {
 
         val completeCommand = CompleteOrder(orderId = orderId)
 
-        val expectedEvent = OrderCompleted(orderId = orderId)
-
         fixture.given(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
@@ -174,11 +184,34 @@ class OrderCommandTests {
                 price = Money.of(BigDecimal("3.50"), "USD")
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD")),
-            OrderDelivered(orderId = orderId)
+            OrderDelivered(
+                orderId = orderId,
+                customerId = customerId,
+                items = listOf(
+                    OrderItemData(
+                        productId = "product-1",
+                        productName = "Espresso",
+                        quantity = 2,
+                        price = Money.of(BigDecimal("3.50"), "USD")
+                    )
+                ),
+                totalAmount = Money.of(BigDecimal("7.00"), "USD"),
+                deliveredAt = Instant.now()
+            )
         )
             .`when`(completeCommand)
             .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<OrderCompleted> { event ->
+                    event.orderId == orderId &&
+                    event.customerId == customerId &&
+                    event.items.size == 1 &&
+                    event.items[0].productId == "product-1" &&
+                    event.items[0].productName == "Espresso" &&
+                    event.items[0].quantity == 2 &&
+                    event.totalAmount == Money.of(BigDecimal("7.00"), "USD")
+                }
+            )))
     }
 
     @Test

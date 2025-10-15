@@ -94,6 +94,7 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
     fun on(event: OrderDelivered) {
         logger.info("Processing OrderDelivered event for order ${event.orderId}")
 
+        // Event now contains all necessary data - no repository lookup needed
         orderRepository.findById(event.orderId).ifPresent { order ->
             orderRepository.save(
                 order.copy(
@@ -107,6 +108,7 @@ class OrderEventProcessor(private val orderRepository: OrderRepository) {
     fun on(event: OrderCompleted) {
         logger.info("Processing OrderCompleted event for order ${event.orderId}")
 
+        // Event now contains all necessary data - no repository lookup needed
         orderRepository.findById(event.orderId).ifPresent { order ->
             orderRepository.save(
                 order.copy(

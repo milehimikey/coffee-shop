@@ -2,6 +2,9 @@ package wtf.milehimikey.coffeeshop.products
 
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
+import org.axonframework.test.matchers.Matchers.exactSequenceOf
+import org.axonframework.test.matchers.Matchers.payloadsMatching
+import org.axonframework.test.matchers.Matchers.predicate
 import org.javamoney.moneta.Money
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -78,21 +81,29 @@ class ProductCommandTests {
     @Test
     fun `should delete product`() {
         val id = "product-1"
+        val name = "Espresso"
+        val description = "Strong coffee"
+        val price = Money.of(BigDecimal("3.50"), "USD")
         val deleteCommand = DeleteProduct(id = id)
-
-        val expectedEvent = ProductDeleted(id = id)
 
         fixture.given(
             ProductCreated(
                 id = id,
-                name = "Espresso",
-                description = "Strong coffee",
-                price = Money.of(BigDecimal("3.50"), "USD")
+                name = name,
+                description = description,
+                price = price
             )
         )
             .`when`(deleteCommand)
             .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<ProductDeleted> { event ->
+                    event.id == id &&
+                    event.name == name &&
+                    event.description == description &&
+                    event.price == price
+                }
+            )))
     }
 
     @Test
@@ -112,7 +123,13 @@ class ProductCommandTests {
                 description = "Strong coffee",
                 price = Money.of(BigDecimal("3.50"), "USD")
             ),
-            ProductDeleted(id = id)
+            ProductDeleted(
+                id = id,
+                name = "Espresso",
+                description = "Strong coffee",
+                price = Money.of(BigDecimal("3.50"), "USD"),
+                deletedAt = java.time.Instant.now()
+            )
         )
             .`when`(updateCommand)
             .expectException(IllegalStateException::class.java)
@@ -130,7 +147,13 @@ class ProductCommandTests {
                 description = "Strong coffee",
                 price = Money.of(BigDecimal("3.50"), "USD")
             ),
-            ProductDeleted(id = id)
+            ProductDeleted(
+                id = id,
+                name = "Espresso",
+                description = "Strong coffee",
+                price = Money.of(BigDecimal("3.50"), "USD"),
+                deletedAt = java.time.Instant.now()
+            )
         )
             .`when`(deleteCommand)
             .expectException(IllegalStateException::class.java)

@@ -63,6 +63,7 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
 
     @EventHandler
     fun on(event: ProductDeleted) {
+        // Event now contains all necessary data - no repository lookup needed
         logger.info("Processing ProductDeleted event for product ${event.id}")
         productRepository.findById(event.id).ifPresent { product ->
             productRepository.save(product.copy(active = false))

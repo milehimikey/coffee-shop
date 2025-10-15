@@ -6,6 +6,7 @@ import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
 import org.javamoney.moneta.Money
+import java.time.Instant
 
 @Aggregate(snapshotTriggerDefinition = "productSnapshotTriggerDefinition")
 class Product {
@@ -54,7 +55,13 @@ class Product {
         }
 
         AggregateLifecycle.apply(
-            ProductDeleted(id = command.id)
+            ProductDeleted(
+                id = id,
+                name = name,
+                description = description,
+                price = price,
+                deletedAt = Instant.now()
+            )
         )
     }
 

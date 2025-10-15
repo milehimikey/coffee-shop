@@ -2,10 +2,13 @@ package wtf.milehimikey.coffeeshop.payments
 
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
-import org.axonframework.test.matchers.Matchers
+import org.axonframework.test.matchers.Matchers.exactSequenceOf
+import org.axonframework.test.matchers.Matchers.payloadsMatching
+import org.axonframework.test.matchers.Matchers.predicate
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.time.Instant
 
 class PaymentCommandTests {
 
@@ -53,6 +56,14 @@ class PaymentCommandTests {
         )
             .`when`(processCommand)
             .expectSuccessfulHandlerExecution()
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<PaymentProcessed> { event ->
+                    event.paymentId == paymentId &&
+                    event.orderId == orderId &&
+                    event.amount == amount &&
+                    event.transactionId.isNotEmpty()
+                }
+            )))
     }
 
     @Test
@@ -67,11 +78,6 @@ class PaymentCommandTests {
             reason = reason
         )
 
-        val expectedEvent = PaymentFailed(
-            paymentId = paymentId,
-            reason = reason
-        )
-
         fixture.given(
             PaymentCreated(
                 id = paymentId,
@@ -81,7 +87,14 @@ class PaymentCommandTests {
         )
             .`when`(failCommand)
             .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<PaymentFailed> { event ->
+                    event.paymentId == paymentId &&
+                    event.orderId == orderId &&
+                    event.amount == amount &&
+                    event.reason == reason
+                }
+            )))
     }
 
     @Test
@@ -89,7 +102,6 @@ class PaymentCommandTests {
         val paymentId = "payment-1"
         val orderId = "order-1"
         val amount = BigDecimal("42.50")
-        val transactionId = "tx-123"
 
         val failCommand = FailPayment(
             paymentId = paymentId,
@@ -104,7 +116,10 @@ class PaymentCommandTests {
             ),
             PaymentProcessed(
                 paymentId = paymentId,
-                transactionId = transactionId
+                orderId = orderId,
+                amount = amount,
+                transactionId = "tx-123",
+                processedAt = Instant.now()
             )
         )
             .`when`(failCommand)
@@ -116,7 +131,6 @@ class PaymentCommandTests {
         val paymentId = "payment-1"
         val orderId = "order-1"
         val amount = BigDecimal("42.50")
-        val transactionId = "tx-123"
 
         val refundCommand = RefundPayment(paymentId = paymentId)
 
@@ -128,11 +142,22 @@ class PaymentCommandTests {
             ),
             PaymentProcessed(
                 paymentId = paymentId,
-                transactionId = transactionId
+                orderId = orderId,
+                amount = amount,
+                transactionId = "tx-123",
+                processedAt = Instant.now()
             )
         )
             .`when`(refundCommand)
             .expectSuccessfulHandlerExecution()
+            .expectEventsMatching(payloadsMatching(exactSequenceOf(
+                predicate<PaymentRefunded> { event ->
+                    event.paymentId == paymentId &&
+                    event.orderId == orderId &&
+                    event.amount == amount &&
+                    event.refundId.isNotEmpty()
+                }
+            )))
     }
 
     @Test

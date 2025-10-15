@@ -6,15 +6,18 @@ import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
 import org.javamoney.moneta.Money
+import java.time.Instant
 
 @Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
 class Order {
 
     @AggregateIdentifier
     lateinit var id: String
+    private lateinit var customerId: String
     private val items: MutableList<OrderItem> = mutableListOf()
     private var status: OrderStatus = OrderStatus.NEW
     private lateinit var totalAmount: Money
+    private var deliveredAt: Instant? = null
 
     constructor() // Required by Axon
 
@@ -69,9 +72,14 @@ class Order {
             throw IllegalStateException("Cannot deliver an order that is not in SUBMITTED status")
         }
 
+        val now = Instant.now()
         AggregateLifecycle.apply(
             OrderDelivered(
-                orderId = id
+                orderId = id,
+                customerId = customerId,
+                items = items.map { it.toOrderItemData() },
+                totalAmount = totalAmount,
+                deliveredAt = now
             )
         )
     }
@@ -82,9 +90,15 @@ class Order {
             throw IllegalStateException("Cannot complete an order that is not in DELIVERED status")
         }
 
+        val now = Instant.now()
         AggregateLifecycle.apply(
             OrderCompleted(
-                orderId = id
+                orderId = id,
+                customerId = customerId,
+                items = items.map { it.toOrderItemData() },
+                totalAmount = totalAmount,
+                deliveredAt = deliveredAt!!,
+                completedAt = now
             )
         )
     }
@@ -92,6 +106,7 @@ class Order {
     @EventSourcingHandler
     fun on(event: OrderCreated) {
         id = event.id
+        customerId = event.customerId
         status = OrderStatus.NEW
     }
 
@@ -115,6 +130,7 @@ class Order {
     @EventSourcingHandler
     fun on(event: OrderDelivered) {
         status = OrderStatus.DELIVERED
+        deliveredAt = event.deliveredAt
     }
 
     @EventSourcingHandler
@@ -128,7 +144,16 @@ data class OrderItem(
     val quantity: Int,
     val price: Money,
     val name: String
-)
+) {
+    fun toOrderItemData(): OrderItemData {
+        return OrderItemData(
+            productId = productId,
+            productName = name,
+            quantity = quantity,
+            price = price
+        )
+    }
+}
 
 enum class OrderStatus {
     NEW, SUBMITTED, DELIVERED, COMPLETED

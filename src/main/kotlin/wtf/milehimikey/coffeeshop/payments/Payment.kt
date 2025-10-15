@@ -6,6 +6,7 @@ import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.*
 
 @Aggregate(snapshotTriggerDefinition = "paymentSnapshotTriggerDefinition")
@@ -41,7 +42,10 @@ class Payment {
         AggregateLifecycle.apply(
             PaymentProcessed(
                 paymentId = id,
-                transactionId = UUID.randomUUID().toString()
+                orderId = orderId,
+                amount = amount,
+                transactionId = UUID.randomUUID().toString(),
+                processedAt = Instant.now()
             )
         )
     }
@@ -55,7 +59,10 @@ class Payment {
         AggregateLifecycle.apply(
             PaymentFailed(
                 paymentId = id,
-                reason = command.reason
+                orderId = orderId,
+                amount = amount,
+                reason = command.reason,
+                failedAt = Instant.now()
             )
         )
     }
@@ -69,7 +76,10 @@ class Payment {
         AggregateLifecycle.apply(
             PaymentRefunded(
                 paymentId = id,
-                refundId = UUID.randomUUID().toString()
+                orderId = orderId,
+                amount = amount,
+                refundId = UUID.randomUUID().toString(),
+                refundedAt = Instant.now()
             )
         )
     }
@@ -83,7 +93,10 @@ class Payment {
         // Allow resetting from any state for testing purposes
         AggregateLifecycle.apply(
             PaymentReset(
-                paymentId = id
+                paymentId = id,
+                orderId = orderId,
+                amount = amount,
+                resetAt = Instant.now()
             )
         )
     }
