@@ -12,7 +12,7 @@ data class ProductDocument(
     val name: String,
     val description: String,
     val price: Money,
-    val sku: String,
+    val sku: String?,  // Nullable to support legacy products before SKU was added
     val active: Boolean = true
 )
 

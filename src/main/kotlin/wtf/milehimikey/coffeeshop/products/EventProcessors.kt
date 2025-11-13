@@ -29,16 +29,15 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
             throw RuntimeException("Simulated error processing ProductCreated event for product with price $ERROR_TRIGGERING_PRICE")
         }
 
-        // SKU should always be present due to upcaster
-        val sku = event.sku ?: throw IllegalStateException("ProductCreated event missing SKU field for product ${event.id}")
-
+        // SKU may be null for legacy products - the upcaster will add it when the aggregate is loaded
+        // For the projection, we can store null and it will be updated when the product is modified
         productRepository.save(
             ProductDocument(
                 id = event.id,
                 name = event.name,
                 description = event.description,
                 price = event.price,
-                sku = sku,
+                sku = event.sku,  // May be null for legacy products
                 active = true
             )
         )

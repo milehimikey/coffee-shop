@@ -163,4 +163,47 @@ class DataGeneratorController(
 
         return "redirect:/generator"
     }
+
+    /**
+     * Handle legacy product generation.
+     * Generates products WITHOUT SKU fields to demonstrate the upcaster.
+     */
+    @PostMapping("/legacy-products")
+    fun generateLegacyProducts(
+        @RequestParam(defaultValue = "5") count: Int,
+        redirectAttributes: RedirectAttributes
+    ): String {
+        val productIds = dataGenerator.generateLegacyProducts(count)
+
+        redirectAttributes.addFlashAttribute("message",
+            "Successfully generated ${productIds.size} legacy products (without SKU). " +
+            "These products will have SKU added by the ProductCreatedUpcaster when events are replayed. " +
+            "Click 'Demonstrate Upcaster' to see it in action!"
+        )
+
+        return "redirect:/generator"
+    }
+
+    /**
+     * Handle upcaster demonstration.
+     * Demonstrates the upcaster by querying and updating a legacy product.
+     */
+    @PostMapping("/demonstrate-upcaster")
+    fun demonstrateUpcaster(
+        @RequestParam(required = false) productId: String?,
+        redirectAttributes: RedirectAttributes
+    ): String {
+        val result = dataGenerator.demonstrateUpcaster(productId)
+
+        redirectAttributes.addFlashAttribute("message",
+            if (result.success) {
+                "Upcaster demonstration successful! ${result.message} " +
+                "Check the application logs for detailed upcaster activity."
+            } else {
+                "Upcaster demonstration failed: ${result.message}"
+            }
+        )
+
+        return "redirect:/generator"
+    }
 }

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import wtf.milehimikey.coffeeshop.admin.BatchGenerationResult
 import wtf.milehimikey.coffeeshop.admin.DataGenerator
+import wtf.milehimikey.coffeeshop.admin.UpcasterDemonstrationResult
 
 import wtf.milehimikey.coffeeshop.orders.AddItemToOrder
 import wtf.milehimikey.coffeeshop.orders.CompleteOrder
@@ -367,6 +368,18 @@ class RestEndpoint(
         return ResponseEntity.ok(result)
     }
 
+    @PostMapping("/generate/legacy-products")
+    fun generateLegacyProducts(@RequestBody request: GenerateLegacyProductsRequest): ResponseEntity<List<String>> {
+        val productIds = dataGenerator.generateLegacyProducts(request.count)
+        return ResponseEntity.ok(productIds)
+    }
+
+    @PostMapping("/generate/demonstrate-upcaster")
+    fun demonstrateUpcaster(@RequestBody request: DemonstrateUpcasterRequest?): ResponseEntity<UpcasterDemonstrationResult> {
+        val result = dataGenerator.demonstrateUpcaster(request?.productId)
+        return ResponseEntity.ok(result)
+    }
+
 
 }
 
@@ -435,4 +448,12 @@ data class GenerateBatchRequest(
     val orderCount: Int = 50,
     val triggerSnapshots: Boolean = true,
     val triggerDeadLetters: Boolean = true
+)
+
+data class GenerateLegacyProductsRequest(
+    val count: Int = 5
+)
+
+data class DemonstrateUpcasterRequest(
+    val productId: String? = null
 )

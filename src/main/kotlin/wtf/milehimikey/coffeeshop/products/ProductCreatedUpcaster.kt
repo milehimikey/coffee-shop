@@ -42,7 +42,7 @@ class ProductCreatedUpcaster(
      *
      * Returns true if:
      * - The event type is ProductCreated
-     * - The event does not have a "sku" field
+     * - The event does not have a "sku" field OR the sku field is null
      *
      * @param intermediateRepresentation The event representation
      * @return true if this upcaster should process the event
@@ -55,11 +55,11 @@ class ProductCreatedUpcaster(
             return false
         }
 
-        // Check if the event already has a SKU field
+        // Check if the event already has a non-null SKU field
         val data = intermediateRepresentation.data as? JsonNode ?: return false
         val hasSku = data.has("sku") && !data.get("sku").isNull
 
-        // Upcast only if SKU is missing
+        // Upcast if SKU is missing or null
         return !hasSku
     }
 

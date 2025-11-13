@@ -18,6 +18,7 @@ import wtf.milehimikey.coffeeshop.payments.FailPayment
 import wtf.milehimikey.coffeeshop.payments.ProcessPayment
 import wtf.milehimikey.coffeeshop.payments.RefundPayment
 import wtf.milehimikey.coffeeshop.payments.ResetPayment
+import wtf.milehimikey.coffeeshop.products.CreateLegacyProduct
 import wtf.milehimikey.coffeeshop.products.CreateProduct
 import wtf.milehimikey.coffeeshop.products.FindAllProducts
 import wtf.milehimikey.coffeeshop.products.FindProductById
@@ -587,6 +588,146 @@ class DataGenerator(
             return "Failed to trigger dead letter for order processor: ${e.message}"
         }
     }
+
+    /**
+     * Generates legacy products WITHOUT SKU fields to demonstrate the upcaster.
+     * These products will have ProductCreated events without SKU, which will be
+     * added by the ProductCreatedUpcaster when the events are replayed.
+     *
+     * @param count Number of legacy products to generate
+     * @return List of generated product IDs
+     */
+    fun generateLegacyProducts(count: Int = 5): List<String> {
+        logger.info("Generating $count legacy products (without SKU)...")
+
+        val productNames = listOf(
+            "Espresso", "Cappuccino", "Latte", "Mocha", "Americano",
+            "Macchiato", "Flat White", "Cold Brew", "Affogato", "Earl Grey Tea"
+        )
+
+        val productDescriptions = listOf(
+            "A classic coffee beverage",
+            "Traditional recipe",
+            "Perfect for any time of day",
+            "Rich and smooth",
+            "Made with care"
+        )
+
+        val productCommands = (1..count).map { index ->
+            val nameIndex = (index - 1) % productNames.size
+            val descIndex = (index - 1) % productDescriptions.size
+            val basePrice = BigDecimal("2.50").add(BigDecimal((index % 10).toString()))
+
+            CreateLegacyProduct(
+                name = "${productNames[nameIndex]} (Legacy #$index)",
+                description = "${productDescriptions[descIndex]} - Created before SKU field was added",
+                price = Money.of(basePrice, "USD")
+            )
+        }
+
+        // Send commands to create legacy products
+        val productIds = productCommands.map { command ->
+            commandGateway.sendAndWait<String>(command)
+        }
+
+        logger.info("Generated ${productIds.size} legacy products without SKU")
+        logger.info("These products will have SKU added by the upcaster when events are replayed")
+
+        return productIds
+    }
+
+    /**
+     * Demonstrates the upcaster functionality by:
+     * 1. Querying a legacy product to show it has a SKU (added by upcaster)
+     * 2. Updating the product to trigger event replay
+     * 3. Logging the process to show the upcaster in action
+     *
+     * @param productId Optional product ID to demonstrate with. If not provided, uses the first available product.
+     * @return Summary of the demonstration
+     */
+    fun demonstrateUpcaster(productId: String? = null): UpcasterDemonstrationResult {
+        logger.info("========================================")
+        logger.info("UPCASTER DEMONSTRATION")
+        logger.info("========================================")
+
+        try {
+            // Get all products to find a legacy one
+            val products = queryGateway.query(
+                FindAllProducts(includeInactive = false),
+                ResponseTypes.multipleInstancesOf(ProductView::class.java)
+            ).get()
+
+            if (products.isEmpty()) {
+                logger.warn("No products found. Generating legacy products first...")
+                val legacyIds = generateLegacyProducts(5)
+                return demonstrateUpcaster(legacyIds.first())
+            }
+
+            // Use provided ID or find a legacy product
+            val targetProductId = productId ?: products.firstOrNull { it.name.contains("Legacy") }?.id
+                ?: products.first().id
+
+            // Query the product
+            val product = queryGateway.query(
+                FindProductById(targetProductId),
+                ResponseTypes.instanceOf(ProductView::class.java)
+            ).get()
+
+            if (product == null) {
+                return UpcasterDemonstrationResult(
+                    success = false,
+                    message = "Product not found: $targetProductId",
+                    productId = targetProductId,
+                    productName = null,
+                    sku = null
+                )
+            }
+
+            logger.info("Step 1: Queried product '${product.name}' (ID: ${product.id})")
+            logger.info("        SKU: ${product.sku}")
+            logger.info("        Note: This SKU was added by the ProductCreatedUpcaster!")
+            logger.info("")
+            logger.info("Step 2: Updating product to trigger event replay...")
+
+            // Update the product to trigger event replay
+            commandGateway.sendAndWait<String>(
+                UpdateProduct(
+                    id = product.id,
+                    name = product.name,
+                    description = "${product.description} - Updated at ${Instant.now()}",
+                    price = product.price
+                )
+            )
+
+            logger.info("        Product updated successfully")
+            logger.info("")
+            logger.info("Step 3: Check the logs above for upcaster activity")
+            logger.info("        Look for: 'Upcasting ProductCreated event for product ${product.id}'")
+            logger.info("")
+            logger.info("========================================")
+            logger.info("DEMONSTRATION COMPLETE")
+            logger.info("========================================")
+
+            return UpcasterDemonstrationResult(
+                success = true,
+                message = "Successfully demonstrated upcaster for product '${product.name}'. " +
+                        "The SKU '${product.sku}' was added by the ProductCreatedUpcaster when the " +
+                        "ProductCreated event (which had no SKU) was replayed from the event store.",
+                productId = product.id,
+                productName = product.name,
+                sku = product.sku
+            )
+        } catch (e: Exception) {
+            logger.error("Error demonstrating upcaster", e)
+            return UpcasterDemonstrationResult(
+                success = false,
+                message = "Error: ${e.message}",
+                productId = null,
+                productName = null,
+                sku = null
+            )
+        }
+    }
 }
 
 /**
@@ -605,4 +746,15 @@ data class BatchGenerationResult(
  */
 data class DeadLetterTriggerResult(
     val results: Map<String, String>
+)
+
+/**
+ * Result of upcaster demonstration.
+ */
+data class UpcasterDemonstrationResult(
+    val success: Boolean,
+    val message: String,
+    val productId: String?,
+    val productName: String?,
+    val sku: String?
 )

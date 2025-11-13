@@ -34,6 +34,28 @@ class Product {
         )
     }
 
+    /**
+     * Command handler for creating legacy products WITHOUT SKU.
+     * This creates a ProductCreated event without the SKU field to demonstrate
+     * the ProductCreatedUpcaster functionality.
+     *
+     * When the aggregate is loaded from the event store, the upcaster will
+     * intercept the ProductCreated event and add the SKU field before it
+     * reaches the event sourcing handler.
+     */
+    @CommandHandler
+    constructor(command: CreateLegacyProduct) {
+        AggregateLifecycle.apply(
+            ProductCreated(
+                id = command.id,
+                name = command.name,
+                description = command.description,
+                price = command.price,
+                sku = null  // Explicitly set to null to simulate old events
+            )
+        )
+    }
+
     @CommandHandler
     fun handle(command: UpdateProduct) {
         if (!active) {
@@ -74,7 +96,9 @@ class Product {
         description = event.description
         price = event.price
         // SKU will be provided by upcaster for old events, or directly from new events
-        sku = event.sku ?: throw IllegalStateException("ProductCreated event missing SKU field")
+        // For legacy products created without SKU, we use a temporary placeholder
+        // The upcaster will add the proper SKU when the aggregate is loaded from the event store
+        sku = event.sku ?: "LEGACY-PENDING-${event.id.take(8)}"
         active = true
     }
 
