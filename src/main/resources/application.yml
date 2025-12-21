@@ -15,15 +15,14 @@ spring:
   application:
     name: coffee-shop
 
-  # MongoDB Configuration
-  data:
-    mongodb:
-      host: localhost
-      port: 27017
-      database: coffeeshop
-      username: root
-      password: secret
-      authentication-database: admin
+  # MongoDB Configuration (Spring Boot 4.0 - moved from spring.data.mongodb to spring.mongodb)
+  mongodb:
+    host: localhost
+    port: 27017
+    database: coffeeshop
+    username: root
+    password: secret
+    authentication-database: admin
 
   # PostgreSQL Configuration for Axon Event Store
   datasource:

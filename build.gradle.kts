@@ -1,9 +1,9 @@
 plugins {
-    kotlin("jvm") version "1.9.25"
-    kotlin("plugin.spring") version "1.9.25"
-    id("org.springframework.boot") version "3.4.4"
+    kotlin("jvm") version "2.1.0"
+    kotlin("plugin.spring") version "2.1.0"
+    id("org.springframework.boot") version "3.5.0"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("plugin.jpa") version "1.9.25"
+    kotlin("plugin.jpa") version "2.1.0"
     id("com.google.cloud.tools.jib") version "3.4.5"
 }
 
@@ -20,7 +20,8 @@ repositories {
     mavenCentral()
 }
 
-extra["axon.version"] = "4.11.2"
+extra["axon.version"] = "4.12.2"
+extra["testcontainers.version"] = "1.21.4"
 
 dependencyManagement {
     imports {
@@ -36,7 +37,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("io.micrometer:micrometer-registry-prometheus:1.14.6")
+
+    // Micrometer Prometheus registry
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Java Money API (JSR 354)
     implementation("org.javamoney:moneta:1.4.5")
@@ -44,24 +47,21 @@ dependencies {
 
     // Axon Framework
     implementation("org.axonframework:axon-spring-boot-starter")
-    implementation("org.axonframework.extensions.mongo:axon-mongo")
-    implementation("org.axonframework.extensions.kotlin:axon-kotlin")
     implementation("org.axonframework:axon-micrometer")
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
     runtimeOnly("org.postgresql:postgresql")
 
-    // Test dependencies
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:mongodb")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:junit-jupiter:${property("testcontainers.version")}")
+    testImplementation("org.testcontainers:mongodb:${property("testcontainers.version")}")
+    testImplementation("org.testcontainers:postgresql:${property("testcontainers.version")}")
     testImplementation("org.axonframework:axon-test")
-    testImplementation("org.awaitility:awaitility:4.2.0")
-    testImplementation("org.awaitility:awaitility-kotlin:4.2.0")
+    testImplementation("org.awaitility:awaitility:4.2.2")
+    testImplementation("org.awaitility:awaitility-kotlin:4.2.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
