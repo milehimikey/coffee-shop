@@ -1,7 +1,6 @@
 package wtf.milehimikey.coffeeshop.payments
 
-import org.axonframework.config.ProcessingGroup
-import org.axonframework.queryhandling.QueryHandler
+import org.axonframework.messaging.queryhandling.annotation.QueryHandler
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -28,7 +27,6 @@ data class PaymentView(
 
 // Query Handlers
 @Component
-@ProcessingGroup("payment")
 class PaymentQueryHandler(private val paymentRepository: PaymentRepository) {
     
     @QueryHandler

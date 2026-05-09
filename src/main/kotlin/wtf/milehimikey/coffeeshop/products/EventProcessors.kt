@@ -1,14 +1,12 @@
 package wtf.milehimikey.coffeeshop.products
 
-import org.axonframework.config.ProcessingGroup
-import org.axonframework.eventhandling.EventHandler
+import org.axonframework.messaging.eventhandling.annotation.EventHandler
 import org.javamoney.moneta.Money
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
 @Component
-@ProcessingGroup("product")
 class ProductEventProcessor(private val productRepository: ProductRepository) {
 
     private val logger = LoggerFactory.getLogger(ProductEventProcessor::class.java)

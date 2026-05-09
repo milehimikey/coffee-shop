@@ -1,7 +1,6 @@
 package wtf.milehimikey.coffeeshop.admin
 
-import org.axonframework.messaging.responsetypes.ResponseTypes
-import org.axonframework.queryhandling.QueryGateway
+import org.axonframework.messaging.queryhandling.gateway.QueryGateway
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,23 +16,9 @@ class DashboardController(private val queryGateway: QueryGateway) {
 
     @GetMapping("/")
     fun dashboard(model: Model): String {
-        // Get all products
-        val products = queryGateway.query(
-            FindAllProducts(includeInactive = false),
-            ResponseTypes.multipleInstancesOf(ProductView::class.java)
-        ).join()
-
-        // Get all orders
-        val orders = queryGateway.query(
-            FindAllOrders(),
-            ResponseTypes.multipleInstancesOf(OrderView::class.java)
-        ).join()
-
-        // Get all payments
-        val payments = queryGateway.query(
-            FindAllPayments(),
-            ResponseTypes.multipleInstancesOf(PaymentView::class.java)
-        ).join()
+        val products = queryGateway.queryMany(FindAllProducts(includeInactive = false), ProductView::class.java).join()
+        val orders = queryGateway.queryMany(FindAllOrders(), OrderView::class.java).join()
+        val payments = queryGateway.queryMany(FindAllPayments(), PaymentView::class.java).join()
 
         model.addAttribute("products", products)
         model.addAttribute("orders", orders)

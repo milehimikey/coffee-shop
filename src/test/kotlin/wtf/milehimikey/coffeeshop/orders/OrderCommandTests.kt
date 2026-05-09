@@ -1,11 +1,14 @@
 package wtf.milehimikey.coffeeshop.orders
 
-import org.axonframework.test.aggregate.AggregateTestFixture
-import org.axonframework.test.aggregate.FixtureConfiguration
-import org.axonframework.test.matchers.Matchers.exactSequenceOf
-import org.axonframework.test.matchers.Matchers.payloadsMatching
-import org.axonframework.test.matchers.Matchers.predicate
+import org.axonframework.conversion.DelegatingGeneralConverter
+import org.axonframework.conversion.GeneralConverter
+import org.axonframework.conversion.jackson2.Jackson2Converter
+import org.axonframework.eventsourcing.configuration.EventSourcedEntityModule
+import org.axonframework.eventsourcing.configuration.EventSourcingConfigurer
+import org.axonframework.messaging.eventhandling.EventMessage
+import org.axonframework.test.fixture.AxonTestFixture
 import org.javamoney.moneta.Money
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
@@ -17,38 +20,40 @@ import java.time.Instant
 
 class OrderCommandTests {
 
-    private lateinit var fixture: FixtureConfiguration<Order>
+    private lateinit var fixture: AxonTestFixture
     private val orderTotalCalculator = mock(OrderTotalCalculator::class.java)
 
     @BeforeEach
     fun setUp() {
-        fixture = AggregateTestFixture(Order::class.java)
-        fixture.registerInjectableResource(orderTotalCalculator)
+        fixture = AxonTestFixture.with(
+            EventSourcingConfigurer.create()
+                .registerEntity(EventSourcedEntityModule.autodetected(String::class.java, Order::class.java))
+                .componentRegistry { registry ->
+                    registry.registerComponent(GeneralConverter::class.java) { _ -> DelegatingGeneralConverter(Jackson2Converter()) }
+                    registry.registerComponent(OrderTotalCalculator::class.java) { _ -> orderTotalCalculator }
+                }
+        )
+    }
+
+    @AfterEach
+    fun tearDown() {
+        fixture.stop()
     }
 
     @Test
     fun `should create order`() {
-        val command = CreateOrder(
-            id = "order-1",
-            customerId = "customer-1"
-        )
+        val command = CreateOrder(id = "order-1", customerId = "customer-1")
+        val expectedEvent = OrderCreated(id = "order-1", customerId = "customer-1")
 
-        val expectedEvent = OrderCreated(
-            id = "order-1",
-            customerId = "customer-1"
-        )
-
-        fixture.givenNoPriorActivity()
-            .`when`(command)
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+        fixture.given().noPriorActivity()
+            .`when`().command(command)
+            .then().success().events(expectedEvent)
     }
 
     @Test
     fun `should add item to order`() {
         val orderId = "order-1"
         val customerId = "customer-1"
-
         val addItemCommand = AddItemToOrder(
             orderId = orderId,
             productId = "product-1",
@@ -56,7 +61,6 @@ class OrderCommandTests {
             quantity = 2,
             price = Money.of(BigDecimal("3.50"), "USD")
         )
-
         val expectedEvent = ItemAddedToOrder(
             orderId = orderId,
             productId = "product-1",
@@ -65,28 +69,18 @@ class OrderCommandTests {
             price = Money.of(BigDecimal("3.50"), "USD")
         )
 
-        fixture.given(OrderCreated(id = orderId, customerId = customerId))
-            .`when`(addItemCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+        fixture.given().events(OrderCreated(id = orderId, customerId = customerId))
+            .`when`().command(addItemCommand)
+            .then().success().events(expectedEvent)
     }
 
     @Test
     fun `should submit order`() {
         val orderId = "order-1"
         val customerId = "customer-1"
-        `when`(orderTotalCalculator.calculateTotal(anyList())).thenReturn(
-            Money.of(BigDecimal("7.00"), "USD")
-        )
+        `when`(orderTotalCalculator.calculateTotal(anyList())).thenReturn(Money.of(BigDecimal("7.00"), "USD"))
 
-        val submitCommand = SubmitOrder(orderId = orderId)
-
-        val expectedEvent = OrderSubmitted(
-            orderId = orderId,
-            totalAmount =  Money.of(BigDecimal("7.00"), "USD")
-        )
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -96,9 +90,8 @@ class OrderCommandTests {
                 price = Money.of(BigDecimal("3.50"), "USD")
             )
         )
-            .`when`(submitCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+            .`when`().command(SubmitOrder(orderId = orderId))
+            .then().success().events(OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD")))
     }
 
     @Test
@@ -106,11 +99,9 @@ class OrderCommandTests {
         val orderId = "order-1"
         val customerId = "customer-1"
 
-        val submitCommand = SubmitOrder(orderId = orderId)
-
-        fixture.given(OrderCreated(id = orderId, customerId = customerId))
-            .`when`(submitCommand)
-            .expectException(IllegalStateException::class.java)
+        fixture.given().events(OrderCreated(id = orderId, customerId = customerId))
+            .`when`().command(SubmitOrder(orderId = orderId))
+            .then().exception(IllegalStateException::class.java)
     }
 
     @Test
@@ -118,9 +109,7 @@ class OrderCommandTests {
         val orderId = "order-1"
         val customerId = "customer-1"
 
-        val deliverCommand = DeliverOrder(orderId = orderId)
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -131,19 +120,18 @@ class OrderCommandTests {
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
-            .`when`(deliverCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEventsMatching(payloadsMatching(exactSequenceOf(
-                predicate<OrderDelivered> { event ->
-                    event.orderId == orderId &&
-                    event.customerId == customerId &&
-                    event.items.size == 1 &&
-                    event.items[0].productId == "product-1" &&
-                    event.items[0].productName == "Espresso" &&
-                    event.items[0].quantity == 2 &&
-                    event.totalAmount == Money.of(BigDecimal("7.00"), "USD")
-                }
-            )))
+            .`when`().command(DeliverOrder(orderId = orderId))
+            .then().success().eventsSatisfy { events: List<EventMessage> ->
+                check(events.size == 1) { "Expected 1 event, got ${events.size}" }
+                val event = events[0].payload() as OrderDelivered
+                check(event.orderId == orderId)
+                check(event.customerId == customerId)
+                check(event.items.size == 1)
+                check(event.items[0].productId == "product-1")
+                check(event.items[0].productName == "Espresso")
+                check(event.items[0].quantity == 2)
+                check(event.totalAmount == Money.of(BigDecimal("7.00"), "USD"))
+            }
     }
 
     @Test
@@ -151,9 +139,7 @@ class OrderCommandTests {
         val orderId = "order-1"
         val customerId = "customer-1"
 
-        val deliverCommand = DeliverOrder(orderId = orderId)
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -163,8 +149,8 @@ class OrderCommandTests {
                 price = Money.of(BigDecimal("3.50"), "USD")
             )
         )
-            .`when`(deliverCommand)
-            .expectException(IllegalStateException::class.java)
+            .`when`().command(DeliverOrder(orderId = orderId))
+            .then().exception(IllegalStateException::class.java)
     }
 
     @Test
@@ -172,9 +158,7 @@ class OrderCommandTests {
         val orderId = "order-1"
         val customerId = "customer-1"
 
-        val completeCommand = CompleteOrder(orderId = orderId)
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -199,19 +183,18 @@ class OrderCommandTests {
                 deliveredAt = Instant.now()
             )
         )
-            .`when`(completeCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEventsMatching(payloadsMatching(exactSequenceOf(
-                predicate<OrderCompleted> { event ->
-                    event.orderId == orderId &&
-                    event.customerId == customerId &&
-                    event.items.size == 1 &&
-                    event.items[0].productId == "product-1" &&
-                    event.items[0].productName == "Espresso" &&
-                    event.items[0].quantity == 2 &&
-                    event.totalAmount == Money.of(BigDecimal("7.00"), "USD")
-                }
-            )))
+            .`when`().command(CompleteOrder(orderId = orderId))
+            .then().success().eventsSatisfy { events: List<EventMessage> ->
+                check(events.size == 1) { "Expected 1 event, got ${events.size}" }
+                val event = events[0].payload() as OrderCompleted
+                check(event.orderId == orderId)
+                check(event.customerId == customerId)
+                check(event.items.size == 1)
+                check(event.items[0].productId == "product-1")
+                check(event.items[0].productName == "Espresso")
+                check(event.items[0].quantity == 2)
+                check(event.totalAmount == Money.of(BigDecimal("7.00"), "USD"))
+            }
     }
 
     @Test
@@ -219,9 +202,7 @@ class OrderCommandTests {
         val orderId = "order-1"
         val customerId = "customer-1"
 
-        val completeCommand = CompleteOrder(orderId = orderId)
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -232,30 +213,18 @@ class OrderCommandTests {
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
-            .`when`(completeCommand)
-            .expectException(IllegalStateException::class.java)
+            .`when`().command(CompleteOrder(orderId = orderId))
+            .then().exception(IllegalStateException::class.java)
     }
 
-    /**
-     * This test demonstrates the behavior of an aggregate with many events,
-     * which would benefit from snapshotting in a production environment.
-     *
-     * Note: The AggregateTestFixture doesn't actually create snapshots during testing,
-     * so this test is more for demonstration purposes. In a real application,
-     * snapshots would be created after the configured threshold (50 events).
-     */
     @Test
     @Disabled("This test is for demonstration purposes only and may take a long time to run")
     fun `should handle many events which would benefit from snapshotting`() {
         val orderId = "order-1"
         val customerId = "customer-1"
+        `when`(orderTotalCalculator.calculateTotal(anyList())).thenReturn(Money.of(BigDecimal("60.00"), "USD"))
 
-        // First create the order
-        val events = mutableListOf<Any>(
-            OrderCreated(id = orderId, customerId = customerId)
-        )
-
-        // Add 60 items to the order (not enough to exceed our snapshot threshold of 200, but enough for demonstration)
+        val events = mutableListOf<Any>(OrderCreated(id = orderId, customerId = customerId))
         for (i in 1..60) {
             events.add(
                 ItemAddedToOrder(
@@ -268,23 +237,12 @@ class OrderCommandTests {
             )
         }
 
-        // Submit the order
-        val submitCommand = SubmitOrder(orderId = orderId)
-
-        // In a real application, a snapshot would be created after 200 events
-        // and used to load the aggregate state more efficiently
-        fixture.given(events)
-            .`when`(submitCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(
-                OrderSubmitted(
-                    orderId = orderId,
-                    totalAmount = Money.of(BigDecimal("60.00"), "USD")
-                )
+        fixture.given().events(events)
+            .`when`().command(SubmitOrder(orderId = orderId))
+            .then().success().events(
+                OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("60.00"), "USD"))
             )
     }
-
-    // Product Name Correction Tests - Demonstrating Compensating Events
 
     @Test
     fun `should correct product name with compensating event`() {
@@ -292,32 +250,31 @@ class OrderCommandTests {
         val customerId = "customer-1"
         val productId = "product-1"
 
-        val correctCommand = CorrectOrderItemProductName(
-            orderId = orderId,
-            productId = productId,
-            correctedProductName = "Espresso"
-        )
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
                 productId = productId,
-                productName = "Bad Name",  // Original bad name
+                productName = "Bad Name",
                 quantity = 2,
                 price = Money.of(BigDecimal("3.50"), "USD")
             )
         )
-            .`when`(correctCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEventsMatching(payloadsMatching(exactSequenceOf(
-                predicate<OrderItemProductNameCorrected> { event ->
-                    event.orderId == orderId &&
-                    event.productId == productId &&
-                    event.oldProductName == "Bad Name" &&
-                    event.correctedProductName == "Espresso"
-                }
-            )))
+            .`when`().command(
+                CorrectOrderItemProductName(
+                    orderId = orderId,
+                    productId = productId,
+                    correctedProductName = "Espresso"
+                )
+            )
+            .then().success().eventsSatisfy { events: List<EventMessage> ->
+                check(events.size == 1) { "Expected 1 event, got ${events.size}" }
+                val event = events[0].payload() as OrderItemProductNameCorrected
+                check(event.orderId == orderId)
+                check(event.productId == productId)
+                check(event.oldProductName == "Bad Name")
+                check(event.correctedProductName == "Espresso")
+            }
     }
 
     @Test
@@ -326,32 +283,31 @@ class OrderCommandTests {
         val customerId = "customer-1"
         val productId = "product-1"
 
-        val correctCommand = CorrectOrderItemProductName(
-            orderId = orderId,
-            productId = productId,
-            correctedProductName = "Cappuccino"
-        )
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
                 productId = productId,
-                productName = "",  // Empty/null name
+                productName = "",
                 quantity = 1,
                 price = Money.of(BigDecimal("4.50"), "USD")
             )
         )
-            .`when`(correctCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEventsMatching(payloadsMatching(exactSequenceOf(
-                predicate<OrderItemProductNameCorrected> { event ->
-                    event.orderId == orderId &&
-                    event.productId == productId &&
-                    event.oldProductName == "" &&
-                    event.correctedProductName == "Cappuccino"
-                }
-            )))
+            .`when`().command(
+                CorrectOrderItemProductName(
+                    orderId = orderId,
+                    productId = productId,
+                    correctedProductName = "Cappuccino"
+                )
+            )
+            .then().success().eventsSatisfy { events: List<EventMessage> ->
+                check(events.size == 1) { "Expected 1 event, got ${events.size}" }
+                val event = events[0].payload() as OrderItemProductNameCorrected
+                check(event.orderId == orderId)
+                check(event.productId == productId)
+                check(event.oldProductName == "")
+                check(event.correctedProductName == "Cappuccino")
+            }
     }
 
     @Test
@@ -359,13 +315,7 @@ class OrderCommandTests {
         val orderId = "order-1"
         val customerId = "customer-1"
 
-        val correctCommand = CorrectOrderItemProductName(
-            orderId = orderId,
-            productId = "non-existent-product",
-            correctedProductName = "Espresso"
-        )
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -375,8 +325,14 @@ class OrderCommandTests {
                 price = Money.of(BigDecimal("4.00"), "USD")
             )
         )
-            .`when`(correctCommand)
-            .expectException(IllegalArgumentException::class.java)
+            .`when`().command(
+                CorrectOrderItemProductName(
+                    orderId = orderId,
+                    productId = "non-existent-product",
+                    correctedProductName = "Espresso"
+                )
+            )
+            .then().exception(IllegalArgumentException::class.java)
     }
 
     @Test
@@ -385,13 +341,7 @@ class OrderCommandTests {
         val customerId = "customer-1"
         val productId = "product-1"
 
-        val correctCommand = CorrectOrderItemProductName(
-            orderId = orderId,
-            productId = productId,
-            correctedProductName = "   "  // Blank name
-        )
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
@@ -401,8 +351,14 @@ class OrderCommandTests {
                 price = Money.of(BigDecimal("3.50"), "USD")
             )
         )
-            .`when`(correctCommand)
-            .expectException(IllegalArgumentException::class.java)
+            .`when`().command(
+                CorrectOrderItemProductName(
+                    orderId = orderId,
+                    productId = productId,
+                    correctedProductName = "   "
+                )
+            )
+            .then().exception(IllegalArgumentException::class.java)
     }
 
     @Test
@@ -411,16 +367,12 @@ class OrderCommandTests {
         val customerId = "customer-1"
         val productId = "product-1"
 
-        // This test demonstrates that when an aggregate is replayed from events,
-        // the correction event is applied, resulting in the corrected state
-        val deliverCommand = DeliverOrder(orderId = orderId)
-
-        fixture.given(
+        fixture.given().events(
             OrderCreated(id = orderId, customerId = customerId),
             ItemAddedToOrder(
                 orderId = orderId,
                 productId = productId,
-                productName = "Bad Name",  // Original bad name
+                productName = "Bad Name",
                 quantity = 2,
                 price = Money.of(BigDecimal("3.50"), "USD")
             ),
@@ -428,22 +380,19 @@ class OrderCommandTests {
                 orderId = orderId,
                 productId = productId,
                 oldProductName = "Bad Name",
-                correctedProductName = "Espresso",  // Corrected name
+                correctedProductName = "Espresso",
                 correctedAt = Instant.now()
             ),
             OrderSubmitted(orderId = orderId, totalAmount = Money.of(BigDecimal("7.00"), "USD"))
         )
-            .`when`(deliverCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEventsMatching(payloadsMatching(exactSequenceOf(
-                predicate<OrderDelivered> { event ->
-                    // The delivered event should contain the CORRECTED product name
-                    event.orderId == orderId &&
-                    event.items.size == 1 &&
-                    event.items[0].productId == productId &&
-                    event.items[0].productName == "Espresso"  // Corrected name, not "Bad Name"
-                }
-            )))
+            .`when`().command(DeliverOrder(orderId = orderId))
+            .then().success().eventsSatisfy { events: List<EventMessage> ->
+                check(events.size == 1) { "Expected 1 event, got ${events.size}" }
+                val event = events[0].payload() as OrderDelivered
+                check(event.orderId == orderId)
+                check(event.items.size == 1)
+                check(event.items[0].productId == productId)
+                check(event.items[0].productName == "Espresso") { "Expected corrected name 'Espresso', got '${event.items[0].productName}'" }
+            }
     }
-
 }

@@ -1,13 +1,11 @@
 package wtf.milehimikey.coffeeshop.payments
 
-import org.axonframework.config.ProcessingGroup
-import org.axonframework.eventhandling.EventHandler
-import org.axonframework.eventhandling.ResetHandler
+import org.axonframework.messaging.eventhandling.annotation.EventHandler
+import org.axonframework.messaging.eventhandling.replay.annotation.ResetHandler
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-@ProcessingGroup("payment")
 class PaymentEventProcessor(private val paymentRepository: PaymentRepository) {
 
     private val logger = LoggerFactory.getLogger(PaymentEventProcessor::class.java)

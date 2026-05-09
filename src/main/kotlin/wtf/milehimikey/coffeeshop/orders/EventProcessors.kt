@@ -1,14 +1,12 @@
 package wtf.milehimikey.coffeeshop.orders
 
-import org.axonframework.config.ProcessingGroup
-import org.axonframework.eventhandling.EventHandler
-import org.axonframework.eventhandling.Timestamp
+import org.axonframework.messaging.eventhandling.annotation.EventHandler
+import org.axonframework.messaging.eventhandling.annotation.Timestamp
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Instant
 
 @Component
-@ProcessingGroup("order")
 class OrderEventProcessor(private val orderRepository: OrderRepository) {
 
     private val logger = LoggerFactory.getLogger(OrderEventProcessor::class.java)

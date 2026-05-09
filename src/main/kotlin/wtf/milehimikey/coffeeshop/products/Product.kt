@@ -1,68 +1,69 @@
 package wtf.milehimikey.coffeeshop.products
 
-import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.eventsourcing.EventSourcingHandler
-import org.axonframework.modelling.command.AggregateIdentifier
-import org.axonframework.modelling.command.AggregateLifecycle
-import org.axonframework.spring.stereotype.Aggregate
+import org.axonframework.eventsourcing.annotation.reflection.EntityCreator
+import org.axonframework.eventsourcing.annotation.EventSourcingHandler
+import org.axonframework.extension.spring.stereotype.EventSourced
+import org.axonframework.messaging.commandhandling.annotation.CommandHandler
+import org.axonframework.messaging.eventhandling.gateway.EventAppender
 import org.javamoney.moneta.Money
 import java.time.Instant
 
-@Aggregate(snapshotTriggerDefinition = "productSnapshotTriggerDefinition")
+@EventSourced(tagKey = "id")
 class Product {
 
-    @AggregateIdentifier
-    lateinit var id: String
+    private lateinit var id: String
     private lateinit var name: String
     private lateinit var description: String
     private lateinit var price: Money
     private lateinit var sku: String
     private var active: Boolean = true
 
-    constructor()  // Required by Axon
-
-    @CommandHandler
-    constructor(command: CreateProduct) {
-        AggregateLifecycle.apply(
-            ProductCreated(
-                id = command.id,
-                name = command.name,
-                description = command.description,
-                price = command.price,
-                sku = command.sku
+    companion object {
+        @JvmStatic
+        @CommandHandler
+        fun create(command: CreateProduct, appender: EventAppender) {
+            appender.append(
+                ProductCreated(
+                    id = command.id,
+                    name = command.name,
+                    description = command.description,
+                    price = command.price,
+                    sku = command.sku
+                )
             )
-        )
+        }
+
+        @JvmStatic
+        @CommandHandler
+        fun createLegacy(command: CreateLegacyProduct, appender: EventAppender) {
+            appender.append(
+                ProductCreated(
+                    id = command.id,
+                    name = command.name,
+                    description = command.description,
+                    price = command.price,
+                    sku = null
+                )
+            )
+        }
     }
 
-    /**
-     * Command handler for creating legacy products WITHOUT SKU.
-     * This creates a ProductCreated event without the SKU field to demonstrate
-     * the ProductCreatedUpcaster functionality.
-     *
-     * When the aggregate is loaded from the event store, the upcaster will
-     * intercept the ProductCreated event and add the SKU field before it
-     * reaches the event sourcing handler.
-     */
-    @CommandHandler
-    constructor(command: CreateLegacyProduct) {
-        AggregateLifecycle.apply(
-            ProductCreated(
-                id = command.id,
-                name = command.name,
-                description = command.description,
-                price = command.price,
-                sku = null  // Explicitly set to null to simulate old events
-            )
-        )
+    @EntityCreator
+    constructor(event: ProductCreated) {
+        id = event.id
+        name = event.name
+        description = event.description
+        price = event.price
+        sku = event.sku ?: "LEGACY-PENDING-${event.id.take(8)}"
+        active = true
     }
 
     @CommandHandler
-    fun handle(command: UpdateProduct) {
+    fun handle(command: UpdateProduct, appender: EventAppender) {
         if (!active) {
             throw IllegalStateException("Cannot update a deleted product")
         }
-
-        AggregateLifecycle.apply(
+        appender.append(
             ProductUpdated(
                 id = command.id,
                 name = command.name,
@@ -73,12 +74,11 @@ class Product {
     }
 
     @CommandHandler
-    fun handle(command: DeleteProduct) {
+    fun handle(command: DeleteProduct, appender: EventAppender) {
         if (!active) {
             throw IllegalStateException("Product is already deleted")
         }
-
-        AggregateLifecycle.apply(
+        appender.append(
             ProductDeleted(
                 id = id,
                 name = name,
@@ -87,19 +87,6 @@ class Product {
                 deletedAt = Instant.now()
             )
         )
-    }
-
-    @EventSourcingHandler
-    fun on(event: ProductCreated) {
-        id = event.id
-        name = event.name
-        description = event.description
-        price = event.price
-        // SKU will be provided by upcaster for old events, or directly from new events
-        // For legacy products created without SKU, we use a temporary placeholder
-        // The upcaster will add the proper SKU when the aggregate is loaded from the event store
-        sku = event.sku ?: "LEGACY-PENDING-${event.id.take(8)}"
-        active = true
     }
 
     @EventSourcingHandler

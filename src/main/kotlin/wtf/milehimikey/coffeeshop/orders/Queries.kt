@@ -1,7 +1,6 @@
 package wtf.milehimikey.coffeeshop.orders
 
-import org.axonframework.config.ProcessingGroup
-import org.axonframework.queryhandling.QueryHandler
+import org.axonframework.messaging.queryhandling.annotation.QueryHandler
 import org.javamoney.moneta.Money
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -32,7 +31,6 @@ data class OrderItemView(
 
 // Query Handlers
 @Component
-@ProcessingGroup("order")
 class OrderQueryHandler(private val orderRepository: OrderRepository) {
 
     @QueryHandler

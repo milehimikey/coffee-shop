@@ -66,17 +66,11 @@ axon:
         mode: pooled
         thread-count: 8
         batch-size: 10
-        dlq:
-          enabled: true
       payment:
         mode: pooled
         thread-count: 8
         batch-size: 10
-        dlq:
-          enabled: true
       product:
         mode: pooled
         thread-count: 8
         batch-size: 10
-        dlq:
-          enabled: true

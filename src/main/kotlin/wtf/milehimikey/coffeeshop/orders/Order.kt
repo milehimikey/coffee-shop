@@ -1,43 +1,44 @@
 package wtf.milehimikey.coffeeshop.orders
 
-import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.eventsourcing.EventSourcingHandler
-import org.axonframework.modelling.command.AggregateIdentifier
-import org.axonframework.modelling.command.AggregateLifecycle
-import org.axonframework.spring.stereotype.Aggregate
+import org.axonframework.eventsourcing.annotation.reflection.EntityCreator
+import org.axonframework.eventsourcing.annotation.EventSourcingHandler
+import org.axonframework.extension.spring.stereotype.EventSourced
+import org.axonframework.messaging.commandhandling.annotation.CommandHandler
+import org.axonframework.messaging.eventhandling.gateway.EventAppender
 import org.javamoney.moneta.Money
 import java.time.Instant
 
-@Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
+@EventSourced(tagKey = "orderId")
 class Order {
 
-    @AggregateIdentifier
-    lateinit var id: String
+    private lateinit var id: String
     private lateinit var customerId: String
     private val items: MutableList<OrderItem> = mutableListOf()
     private var status: OrderStatus = OrderStatus.NEW
     private lateinit var totalAmount: Money
     private var deliveredAt: Instant? = null
 
-    constructor() // Required by Axon
+    companion object {
+        @JvmStatic
+        @CommandHandler
+        fun create(command: CreateOrder, appender: EventAppender) {
+            appender.append(OrderCreated(id = command.id, customerId = command.customerId))
+        }
+    }
 
-    @CommandHandler
-    constructor(command: CreateOrder) {
-        AggregateLifecycle.apply(
-            OrderCreated(
-                id = command.id,
-                customerId = command.customerId
-            )
-        )
+    @EntityCreator
+    constructor(event: OrderCreated) {
+        id = event.id
+        customerId = event.customerId
+        status = OrderStatus.NEW
     }
 
     @CommandHandler
-    fun handle(command: AddItemToOrder) {
+    fun handle(command: AddItemToOrder, appender: EventAppender) {
         if (status != OrderStatus.NEW) {
             throw IllegalStateException("Cannot add items to an order that is not in NEW status")
         }
-
-        AggregateLifecycle.apply(
+        appender.append(
             ItemAddedToOrder(
                 orderId = id,
                 productId = command.productId,
@@ -49,16 +50,14 @@ class Order {
     }
 
     @CommandHandler
-    fun handle(command: SubmitOrder, orderTotalCalculator: OrderTotalCalculator) {
+    fun handle(command: SubmitOrder, appender: EventAppender, orderTotalCalculator: OrderTotalCalculator) {
         if (status != OrderStatus.NEW) {
             throw IllegalStateException("Cannot submit an order that is not in NEW status")
         }
-
         if (items.isEmpty()) {
             throw IllegalStateException("Cannot submit an empty order")
         }
-
-        AggregateLifecycle.apply(
+        appender.append(
             OrderSubmitted(
                 orderId = command.orderId,
                 totalAmount = orderTotalCalculator.calculateTotal(items)
@@ -67,60 +66,46 @@ class Order {
     }
 
     @CommandHandler
-    fun handle(command: DeliverOrder) {
+    fun handle(command: DeliverOrder, appender: EventAppender) {
         if (status != OrderStatus.SUBMITTED) {
             throw IllegalStateException("Cannot deliver an order that is not in SUBMITTED status")
         }
-
-        val now = Instant.now()
-        AggregateLifecycle.apply(
+        appender.append(
             OrderDelivered(
                 orderId = id,
                 customerId = customerId,
                 items = items.map { it.toOrderItemData() },
                 totalAmount = totalAmount,
-                deliveredAt = now
+                deliveredAt = Instant.now()
             )
         )
     }
 
     @CommandHandler
-    fun handle(command: CompleteOrder) {
+    fun handle(command: CompleteOrder, appender: EventAppender) {
         if (status != OrderStatus.DELIVERED) {
             throw IllegalStateException("Cannot complete an order that is not in DELIVERED status")
         }
-
-        val now = Instant.now()
-        AggregateLifecycle.apply(
+        appender.append(
             OrderCompleted(
                 orderId = id,
                 customerId = customerId,
                 items = items.map { it.toOrderItemData() },
                 totalAmount = totalAmount,
                 deliveredAt = deliveredAt!!,
-                completedAt = now
+                completedAt = Instant.now()
             )
         )
     }
 
-    /**
-     * Command handler for correcting product names.
-     * This demonstrates the event sourcing pattern of using compensating events
-     * to fix data quality issues without modifying historical events.
-     */
     @CommandHandler
-    fun handle(command: CorrectOrderItemProductName) {
-        // Find the item with the specified productId
+    fun handle(command: CorrectOrderItemProductName, appender: EventAppender) {
         val item = items.find { it.productId == command.productId }
             ?: throw IllegalArgumentException("Order item with productId ${command.productId} not found in order $id")
-
-        // Validate the corrected name is not blank
         if (command.correctedProductName.isBlank()) {
             throw IllegalArgumentException("Corrected product name cannot be blank")
         }
-
-        // Emit the compensating event
-        AggregateLifecycle.apply(
+        appender.append(
             OrderItemProductNameCorrected(
                 orderId = id,
                 productId = command.productId,
@@ -132,21 +117,15 @@ class Order {
     }
 
     @EventSourcingHandler
-    fun on(event: OrderCreated) {
-        id = event.id
-        customerId = event.customerId
-        status = OrderStatus.NEW
-    }
-
-    @EventSourcingHandler
     fun on(event: ItemAddedToOrder) {
-        val item = OrderItem(
-            productId = event.productId,
-            quantity = event.quantity,
-            price = event.price,
-            name = event.productName
+        items.add(
+            OrderItem(
+                productId = event.productId,
+                quantity = event.quantity,
+                price = event.price,
+                name = event.productName
+            )
         )
-        items.add(item)
     }
 
     @EventSourcingHandler
@@ -166,19 +145,10 @@ class Order {
         status = OrderStatus.COMPLETED
     }
 
-    /**
-     * Event sourcing handler for product name corrections.
-     * This handler is called both when the event is first published AND
-     * when the aggregate is replayed from the event store.
-     * This ensures the correction is applied consistently.
-     */
     @EventSourcingHandler
     fun on(event: OrderItemProductNameCorrected) {
-        // Find the item and update its name
         val item = items.find { it.productId == event.productId }
-        item?.let {
-            it.name = event.correctedProductName
-        }
+        item?.let { it.name = event.correctedProductName }
     }
 }
 
@@ -186,7 +156,7 @@ data class OrderItem(
     val productId: String,
     val quantity: Int,
     val price: Money,
-    var name: String  // var instead of val to allow correction
+    var name: String
 ) {
     fun toOrderItemData(): OrderItemData {
         return OrderItemData(

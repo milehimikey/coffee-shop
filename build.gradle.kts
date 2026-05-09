@@ -20,12 +20,12 @@ repositories {
     mavenCentral()
 }
 
-extra["axon.version"] = "4.12.2"
+extra["axon.version"] = "5.1.0"
 extra["testcontainers.version"] = "1.21.4"
 
 dependencyManagement {
     imports {
-        mavenBom("org.axonframework:axon-bom:${property("axon.version")}")
+        mavenBom("org.axonframework:axon-framework-bom:${property("axon.version")}")
     }
 }
 
@@ -46,8 +46,8 @@ dependencies {
     implementation("org.zalando:jackson-datatype-money:1.3.0")
 
     // Axon Framework
-    implementation("org.axonframework:axon-spring-boot-starter")
-    implementation("org.axonframework:axon-micrometer")
+    implementation("org.axonframework.extensions.spring:axon-spring-boot-starter")
+    implementation("org.axonframework.extensions.metrics:axon-metrics-micrometer")
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
@@ -75,7 +75,7 @@ allOpen {
     annotation("jakarta.persistence.Entity")
     annotation("jakarta.persistence.MappedSuperclass")
     annotation("jakarta.persistence.Embeddable")
-    annotation("org.axonframework.spring.stereotype.Aggregate")
+    annotation("org.axonframework.extension.spring.stereotype.EventSourced")
 }
 
 tasks.withType<Test> {

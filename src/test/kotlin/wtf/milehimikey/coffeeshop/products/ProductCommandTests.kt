@@ -1,22 +1,37 @@
 package wtf.milehimikey.coffeeshop.products
 
-import org.axonframework.test.aggregate.AggregateTestFixture
-import org.axonframework.test.aggregate.FixtureConfiguration
-import org.axonframework.test.matchers.Matchers.exactSequenceOf
-import org.axonframework.test.matchers.Matchers.payloadsMatching
-import org.axonframework.test.matchers.Matchers.predicate
+import org.axonframework.conversion.DelegatingGeneralConverter
+import org.axonframework.conversion.GeneralConverter
+import org.axonframework.conversion.jackson2.Jackson2Converter
+import org.axonframework.eventsourcing.configuration.EventSourcedEntityModule
+import org.axonframework.eventsourcing.configuration.EventSourcingConfigurer
+import org.axonframework.messaging.eventhandling.EventMessage
+import org.axonframework.test.fixture.AxonTestFixture
 import org.javamoney.moneta.Money
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.time.Instant
 
 class ProductCommandTests {
 
-    private lateinit var fixture: FixtureConfiguration<Product>
+    private lateinit var fixture: AxonTestFixture
 
     @BeforeEach
     fun setUp() {
-        fixture = AggregateTestFixture(Product::class.java)
+        fixture = AxonTestFixture.with(
+            EventSourcingConfigurer.create()
+                .registerEntity(EventSourcedEntityModule.autodetected(String::class.java, Product::class.java))
+                .componentRegistry { registry ->
+                    registry.registerComponent(GeneralConverter::class.java) { _ -> DelegatingGeneralConverter(Jackson2Converter()) }
+                }
+        )
+    }
+
+    @AfterEach
+    fun tearDown() {
+        fixture.stop()
     }
 
     @Test
@@ -28,7 +43,6 @@ class ProductCommandTests {
             price = Money.of(BigDecimal("3.50"), "USD"),
             sku = "ESP-001"
         )
-
         val expectedEvent = ProductCreated(
             id = "product-1",
             name = "Espresso",
@@ -37,30 +51,20 @@ class ProductCommandTests {
             sku = "ESP-001"
         )
 
-        fixture.givenNoPriorActivity()
-            .`when`(command)
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+        fixture.given().noPriorActivity()
+            .`when`().command(command)
+            .then().success().events(expectedEvent)
     }
 
     @Test
     fun `should update product`() {
         val id = "product-1"
-        val createCommand = CreateProduct(
-            id = id,
-            name = "Espresso",
-            description = "Strong coffee",
-            price = Money.of(BigDecimal("3.50"), "USD"),
-            sku = "ESP-001"
-        )
-
         val updateCommand = UpdateProduct(
             id = id,
             name = "Double Espresso",
             description = "Extra strong coffee",
             price = Money.of(BigDecimal("4.50"), "USD")
         )
-
         val expectedEvent = ProductUpdated(
             id = id,
             name = "Double Espresso",
@@ -68,7 +72,7 @@ class ProductCommandTests {
             price = Money.of(BigDecimal("4.50"), "USD")
         )
 
-        fixture.given(
+        fixture.given().events(
             ProductCreated(
                 id = id,
                 name = "Espresso",
@@ -77,9 +81,8 @@ class ProductCommandTests {
                 sku = "ESP-001"
             )
         )
-            .`when`(updateCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(expectedEvent)
+            .`when`().command(updateCommand)
+            .then().success().events(expectedEvent)
     }
 
     @Test
@@ -88,41 +91,26 @@ class ProductCommandTests {
         val name = "Espresso"
         val description = "Strong coffee"
         val price = Money.of(BigDecimal("3.50"), "USD")
-        val sku = "ESP-001"
-        val deleteCommand = DeleteProduct(id = id)
 
-        fixture.given(
-            ProductCreated(
-                id = id,
-                name = name,
-                description = description,
-                price = price,
-                sku = sku
-            )
+        fixture.given().events(
+            ProductCreated(id = id, name = name, description = description, price = price, sku = "ESP-001")
         )
-            .`when`(deleteCommand)
-            .expectSuccessfulHandlerExecution()
-            .expectEventsMatching(payloadsMatching(exactSequenceOf(
-                predicate<ProductDeleted> { event ->
-                    event.id == id &&
-                    event.name == name &&
-                    event.description == description &&
-                    event.price == price
-                }
-            )))
+            .`when`().command(DeleteProduct(id = id))
+            .then().success().eventsSatisfy { events: List<EventMessage> ->
+                check(events.size == 1) { "Expected 1 event, got ${events.size}" }
+                val event = events[0].payload() as ProductDeleted
+                check(event.id == id)
+                check(event.name == name)
+                check(event.description == description)
+                check(event.price == price)
+            }
     }
 
     @Test
     fun `should not update deleted product`() {
         val id = "product-1"
-        val updateCommand = UpdateProduct(
-            id = id,
-            name = "Double Espresso",
-            description = "Extra strong coffee",
-            price = Money.of(BigDecimal("4.50"), "USD")
-        )
 
-        fixture.given(
+        fixture.given().events(
             ProductCreated(
                 id = id,
                 name = "Espresso",
@@ -135,19 +123,25 @@ class ProductCommandTests {
                 name = "Espresso",
                 description = "Strong coffee",
                 price = Money.of(BigDecimal("3.50"), "USD"),
-                deletedAt = java.time.Instant.now()
+                deletedAt = Instant.now()
             )
         )
-            .`when`(updateCommand)
-            .expectException(IllegalStateException::class.java)
+            .`when`().command(
+                UpdateProduct(
+                    id = id,
+                    name = "Double Espresso",
+                    description = "Extra strong coffee",
+                    price = Money.of(BigDecimal("4.50"), "USD")
+                )
+            )
+            .then().exception(IllegalStateException::class.java)
     }
 
     @Test
     fun `should not delete already deleted product`() {
         val id = "product-1"
-        val deleteCommand = DeleteProduct(id = id)
 
-        fixture.given(
+        fixture.given().events(
             ProductCreated(
                 id = id,
                 name = "Espresso",
@@ -160,10 +154,10 @@ class ProductCommandTests {
                 name = "Espresso",
                 description = "Strong coffee",
                 price = Money.of(BigDecimal("3.50"), "USD"),
-                deletedAt = java.time.Instant.now()
+                deletedAt = Instant.now()
             )
         )
-            .`when`(deleteCommand)
-            .expectException(IllegalStateException::class.java)
+            .`when`().command(DeleteProduct(id = id))
+            .then().exception(IllegalStateException::class.java)
     }
 }

@@ -1,7 +1,6 @@
 package wtf.milehimikey.coffeeshop.products
 
-import org.axonframework.config.ProcessingGroup
-import org.axonframework.queryhandling.QueryHandler
+import org.axonframework.messaging.queryhandling.annotation.QueryHandler
 import org.javamoney.moneta.Money
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -22,7 +21,6 @@ data class ProductView(
 
 // Query Handlers
 @Component
-@ProcessingGroup("product")
 class ProductQueryHandler(private val productRepository: ProductRepository) {
 
     @QueryHandler

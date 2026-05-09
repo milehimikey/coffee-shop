@@ -1,8 +1,7 @@
 package wtf.milehimikey.coffeeshop.admin
 
-import org.axonframework.commandhandling.gateway.CommandGateway
-import org.axonframework.messaging.responsetypes.ResponseTypes
-import org.axonframework.queryhandling.QueryGateway
+import org.axonframework.messaging.commandhandling.gateway.CommandGateway
+import org.axonframework.messaging.queryhandling.gateway.QueryGateway
 import org.javamoney.moneta.Money
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -38,6 +37,9 @@ class DataGenerator(
     private val queryGateway: QueryGateway
 ) {
     private val logger = LoggerFactory.getLogger(DataGenerator::class.java)
+
+    private fun sendAndWait(command: Any): String =
+        commandGateway.sendAndWait(command, String::class.java) ?: error("Command $command returned null")
 
     /**
      * Generates a specified number of products with optional customization.
@@ -85,7 +87,7 @@ class DataGenerator(
 
         // Send commands to create products
         val productIds = productCommands.map { command ->
-            commandGateway.sendAndWait<String>(command)
+            sendAndWait(command)
         }
 
         // If requested, trigger a snapshot for the first product by generating many updates
@@ -94,10 +96,7 @@ class DataGenerator(
             logger.info("Triggering snapshot for product $productId by generating 210 updates...")
 
             // Get the current product details
-            val product = queryGateway.query(
-                FindProductById(productId),
-                ResponseTypes.instanceOf(ProductView::class.java)
-            ).get()
+            val product = queryGateway.query(FindProductById(productId), ProductView::class.java).get()
 
             if (product != null) {
                 var currentPrice = product.price
@@ -118,7 +117,7 @@ class DataGenerator(
                         currentPrice = maxPrice
                     }
 
-                    commandGateway.sendAndWait<String>(
+                    sendAndWait(
                         UpdateProduct(
                             id = productId,
                             name = currentName,
@@ -160,20 +159,14 @@ class DataGenerator(
         logger.info("Generating $count orders (triggerSnapshot=$triggerSnapshot, completeOrders=$completeOrders)...")
 
         // Get available products
-        val products = queryGateway.query(
-            FindAllProducts(includeInactive = false),
-            ResponseTypes.multipleInstancesOf(ProductView::class.java)
-        ).get()
+        val products = queryGateway.queryMany(FindAllProducts(includeInactive = false), ProductView::class.java).get()
 
         if (products.isEmpty()) {
             logger.warn("No products available. Generating 10 products first...")
             generateProducts(10, false)
 
             // Query again for products
-            val newProducts = queryGateway.query(
-                FindAllProducts(includeInactive = false),
-                ResponseTypes.multipleInstancesOf(ProductView::class.java)
-            ).get()
+            val newProducts = queryGateway.queryMany(FindAllProducts(includeInactive = false), ProductView::class.java).get()
 
             if (newProducts.isEmpty()) {
                 throw IllegalStateException("Failed to generate products")
@@ -196,7 +189,7 @@ class DataGenerator(
             val orderCustomerId = customerIds.random()
 
             // Create order
-            val orderId = commandGateway.sendAndWait<String>(
+            val orderId = sendAndWait(
                 CreateOrder(customerId = orderCustomerId)
             )
 
@@ -215,7 +208,7 @@ class DataGenerator(
                 val product = products.random()
                 val quantity = (1..3).random()
 
-                commandGateway.sendAndWait<String>(
+                sendAndWait(
                     AddItemToOrder(
                         orderId = orderId,
                         productId = product.id,
@@ -233,19 +226,19 @@ class DataGenerator(
 
             if (completeOrders) {
                 // Submit the order
-                commandGateway.sendAndWait<String>(
+                sendAndWait(
                     SubmitOrder(orderId = orderId)
                 )
 
                 // For some orders, mark them as delivered
                 if (i % 2 == 0) {
-                    commandGateway.sendAndWait<String>(
+                    sendAndWait(
                         DeliverOrder(orderId = orderId)
                     )
 
                     // For some delivered orders, mark them as completed
                     if (i % 4 == 0) {
-                        commandGateway.sendAndWait<String>(
+                        sendAndWait(
                             CompleteOrder(orderId = orderId)
                         )
                     }
@@ -287,7 +280,7 @@ class DataGenerator(
             val specialOrderId = orderIds.first()
             logger.info("Creating a special payment with amount $13.13 to demonstrate dead letter queue functionality")
 
-            val specialPaymentId = commandGateway.sendAndWait<String>(
+            val specialPaymentId = sendAndWait(
                 CreatePayment(
                     orderId = specialOrderId,
                     amount = BigDecimal("13.13")
@@ -295,13 +288,13 @@ class DataGenerator(
             )
 
             // Process the special payment
-            commandGateway.sendAndWait<String>(
+            sendAndWait(
                 ProcessPayment(paymentId = specialPaymentId)
             )
 
             // Attempt to reset the payment - this will trigger the dead letter
             try {
-                commandGateway.sendAndWait<String>(
+                sendAndWait(
                     ResetPayment(paymentId = specialPaymentId)
                 )
             } catch (e: Exception) {
@@ -319,14 +312,11 @@ class DataGenerator(
             if (triggerDeadLetter && index == 0) continue
 
             // Query for the order to get the total amount
-            val order = queryGateway.query(
-                FindOrderById(orderId),
-                ResponseTypes.instanceOf(OrderView::class.java)
-            ).get()
+            val order = queryGateway.query(FindOrderById(orderId), OrderView::class.java).get()
 
             if (order != null) {
                 // Create payment
-                val paymentId = commandGateway.sendAndWait<String>(
+                val paymentId = sendAndWait(
                     CreatePayment(
                         orderId = orderId,
                         amount = order.totalAmount!!.number.numberValue(BigDecimal::class.java)
@@ -339,24 +329,24 @@ class DataGenerator(
 
                     // Process and refund the payment multiple times to generate events
                     // First process the payment
-                    commandGateway.sendAndWait<String>(
+                    sendAndWait(
                         ProcessPayment(paymentId = paymentId)
                     )
 
                     // Generate 30+ events for this payment (exceeding threshold of 25)
                     for (i in 1..15) {
                         // Refund the payment
-                        commandGateway.sendAndWait<String>(
+                        sendAndWait(
                             RefundPayment(paymentId = paymentId)
                         )
 
                         // Reset the payment to PENDING status
-                        commandGateway.sendAndWait<String>(
+                        sendAndWait(
                             ResetPayment(paymentId = paymentId)
                         )
 
                         // Process the payment again
-                        commandGateway.sendAndWait<String>(
+                        sendAndWait(
                             ProcessPayment(paymentId = paymentId)
                         )
 
@@ -369,19 +359,19 @@ class DataGenerator(
                 } else {
                     // Process most payments (normal case)
                     if (Math.random() > 0.2) {
-                        commandGateway.sendAndWait<String>(
+                        sendAndWait(
                             ProcessPayment(paymentId = paymentId)
                         )
 
                         // Refund some payments
                         if (Math.random() > 0.8) {
-                            commandGateway.sendAndWait<String>(
+                            sendAndWait(
                                 RefundPayment(paymentId = paymentId)
                             )
                         }
                     } else {
                         // Fail some payments
-                        commandGateway.sendAndWait<String>(
+                        sendAndWait(
                             FailPayment(
                                 paymentId = paymentId,
                                 reason = "Insufficient funds"
@@ -472,12 +462,12 @@ class DataGenerator(
 
         try {
             // Create a payment with the special amount that triggers errors
-            val orderId = commandGateway.sendAndWait<String>(
+            val orderId = sendAndWait(
                 CreateOrder(customerId = "dead-letter-test")
             )
 
             // Add an item to the order
-            commandGateway.sendAndWait<String>(
+            sendAndWait(
                 AddItemToOrder(
                     orderId = orderId,
                     productId = "test-product",
@@ -488,12 +478,12 @@ class DataGenerator(
             )
 
             // Submit the order
-            commandGateway.sendAndWait<String>(
+            sendAndWait(
                 SubmitOrder(orderId = orderId)
             )
 
             // Create payment with the special amount
-            val paymentId = commandGateway.sendAndWait<String>(
+            val paymentId = sendAndWait(
                 CreatePayment(
                     orderId = orderId,
                     amount = BigDecimal("13.13")
@@ -501,13 +491,13 @@ class DataGenerator(
             )
 
             // Process the payment
-            commandGateway.sendAndWait<String>(
+            sendAndWait(
                 ProcessPayment(paymentId = paymentId)
             )
 
             // Attempt to reset the payment - this will trigger the dead letter
             try {
-                commandGateway.sendAndWait<String>(
+                sendAndWait(
                     ResetPayment(paymentId = paymentId)
                 )
             } catch (e: Exception) {
@@ -532,7 +522,7 @@ class DataGenerator(
 
         try {
             // Create a product with the special price that triggers errors
-            val productId = commandGateway.sendAndWait<String>(
+            val productId = sendAndWait(
                 CreateProduct(
                     name = "Error Triggering Product",
                     description = "This product will trigger a dead letter when updated",
@@ -543,7 +533,7 @@ class DataGenerator(
 
             // Update the product with the error-triggering price
             try {
-                commandGateway.sendAndWait<String>(
+                sendAndWait(
                     UpdateProduct(
                         id = productId,
                         name = "Error Triggering Product",
@@ -574,7 +564,7 @@ class DataGenerator(
         try {
             // Create an order with the special customer ID that triggers errors
             try {
-                val orderId = commandGateway.sendAndWait<String>(
+                val orderId = sendAndWait(
                     CreateOrder(customerId = "error-customer")
                 )
 
@@ -627,7 +617,7 @@ class DataGenerator(
 
         // Send commands to create legacy products
         val productIds = productCommands.map { command ->
-            commandGateway.sendAndWait<String>(command)
+            sendAndWait(command)
         }
 
         logger.info("Generated ${productIds.size} legacy products without SKU")
@@ -652,10 +642,7 @@ class DataGenerator(
 
         try {
             // Get all products to find a legacy one
-            val products = queryGateway.query(
-                FindAllProducts(includeInactive = false),
-                ResponseTypes.multipleInstancesOf(ProductView::class.java)
-            ).get()
+            val products = queryGateway.queryMany(FindAllProducts(includeInactive = false), ProductView::class.java).get()
 
             if (products.isEmpty()) {
                 logger.warn("No products found. Generating legacy products first...")
@@ -668,10 +655,7 @@ class DataGenerator(
                 ?: products.first().id
 
             // Query the product
-            val product = queryGateway.query(
-                FindProductById(targetProductId),
-                ResponseTypes.instanceOf(ProductView::class.java)
-            ).get()
+            val product = queryGateway.query(FindProductById(targetProductId), ProductView::class.java).get()
 
             if (product == null) {
                 return UpcasterDemonstrationResult(
@@ -690,7 +674,7 @@ class DataGenerator(
             logger.info("Step 2: Updating product to trigger event replay...")
 
             // Update the product to trigger event replay
-            commandGateway.sendAndWait<String>(
+            sendAndWait(
                 UpdateProduct(
                     id = product.id,
                     name = product.name,
