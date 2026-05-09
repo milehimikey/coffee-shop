@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 import wtf.milehimikey.coffeeshop.config.DeadLetterProcessor
-import java.util.*
 
 /**
  * Controller for the data generation UI.
@@ -18,7 +17,7 @@ import java.util.*
 @RequestMapping("/generator")
 class DataGeneratorController(
     private val dataGenerator: DataGenerator,
-    private val deadLetterProcessor: Optional<DeadLetterProcessor>
+    private val deadLetterProcessor: DeadLetterProcessor
 ) {
 
     /**
@@ -148,18 +147,13 @@ class DataGeneratorController(
         @RequestParam count: Int,
         redirectAttributes: RedirectAttributes
     ): String {
-        deadLetterProcessor.ifPresent { dlProcessor ->
-            val result = dlProcessor.processDeadLettersManually(
-            processingGroup = processingGroup,
-            count = count)
-
-            redirectAttributes.addFlashAttribute("message",
-                "Dead letter processing results for group '$processingGroup': " +
-                        "Processed: ${result["processed"]}, " +
-                        "Failed: ${result["failed"]}, " +
-                        "Ignored: ${result["ignored"]}"
-            )
-        }
+        val result = deadLetterProcessor.processDeadLettersManually(processingGroup, count)
+        redirectAttributes.addFlashAttribute("message",
+            "Dead letter processing results for group '$processingGroup': " +
+                    "Processed: ${result["processed"]}, " +
+                    "Failed: ${result["failed"]}, " +
+                    "Ignored: ${result["ignored"]}"
+        )
 
         return "redirect:/generator"
     }

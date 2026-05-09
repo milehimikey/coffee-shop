@@ -1,6 +1,5 @@
 package wtf.milehimikey.coffeeshop.actuator
 
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -19,50 +18,43 @@ import wtf.milehimikey.coffeeshop.config.DeadLetterProcessor
 @RequestMapping("/actuator/deadletters")
 class DeadLetterActuator(
     private val dataGenerator: DataGenerator,
-    @Autowired(required = false) private val deadLetterProcessor: DeadLetterProcessor?
+    private val deadLetterProcessor: DeadLetterProcessor
 ) {
 
-    /**
-     * Get information about dead letter processing capabilities.
-     */
     @GetMapping
     fun info(): ResponseEntity<Map<String, Any>> {
+        val groups = listOf("payment", "order", "product")
+        val counts = groups.associateWith { group ->
+            deadLetterProcessor.getDeadLetterViews(group).size
+        }
         val info = mapOf(
-            "processorAvailable" to (deadLetterProcessor != null),
-            "supportedProcessingGroups" to listOf("payment", "order", "product"),
+            "deadLetterCounts" to counts,
             "operations" to mapOf(
+                "list" to "GET /actuator/deadletters/{processingGroup}",
                 "process" to "POST /actuator/deadletters/process/{processingGroup}?count={count}",
-                "trigger" to "POST /actuator/deadletters/trigger/{processor}",
-                "triggerAll" to "POST /actuator/deadletters/trigger"
+                "trigger" to "POST /actuator/deadletters/trigger/{processor}"
             )
         )
         return ResponseEntity.ok(info)
     }
 
-    /**
-     * Process dead letters for a specific processing group.
-     */
+    @GetMapping("/{processingGroup}")
+    fun listDeadLetters(@PathVariable processingGroup: String): ResponseEntity<List<Any>> {
+        val views = deadLetterProcessor.getDeadLetterViews(processingGroup)
+        return ResponseEntity.ok(views)
+    }
+
     @PostMapping("/process/{processingGroup}")
     fun processDeadLetters(
         @PathVariable processingGroup: String,
         @RequestParam(defaultValue = "10") count: Int
     ): ResponseEntity<Map<String, Any>> {
-        if (deadLetterProcessor == null) {
-            val error = mapOf(
-                "error" to "DeadLetterProcessor is not available",
-                "processingGroup" to processingGroup,
-                "count" to count
-            )
-            return ResponseEntity.ok(error)
-        }
-
         val result = deadLetterProcessor.processDeadLettersManually(processingGroup, count)
-        val response = mapOf(
+        return ResponseEntity.ok(mapOf(
             "processingGroup" to processingGroup,
             "requestedCount" to count,
             "results" to result
-        )
-        return ResponseEntity.ok(response)
+        ))
     }
 
     /**

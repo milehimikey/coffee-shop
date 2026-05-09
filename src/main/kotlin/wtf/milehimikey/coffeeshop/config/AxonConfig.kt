@@ -6,23 +6,23 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class AxonConfig {
+class AxonConfig(private val deadLetterProcessor: DeadLetterProcessor) {
 
     @Bean
     fun orderProcessorDefinition(): EventProcessorDefinition =
         EventProcessorDefinition.pooledStreaming("order")
             .assigningHandlers(EventHandlerSelector.matchesNamespaceOnType("wtf.milehimikey.coffeeshop.orders"))
-            .notCustomized()
+            .customized { config -> config.errorHandler(deadLetterProcessor.errorHandler()) }
 
     @Bean
     fun paymentProcessorDefinition(): EventProcessorDefinition =
         EventProcessorDefinition.pooledStreaming("payment")
             .assigningHandlers(EventHandlerSelector.matchesNamespaceOnType("wtf.milehimikey.coffeeshop.payments"))
-            .notCustomized()
+            .customized { config -> config.errorHandler(deadLetterProcessor.errorHandler()) }
 
     @Bean
     fun productProcessorDefinition(): EventProcessorDefinition =
         EventProcessorDefinition.pooledStreaming("product")
             .assigningHandlers(EventHandlerSelector.matchesNamespaceOnType("wtf.milehimikey.coffeeshop.products"))
-            .notCustomized()
+            .customized { config -> config.errorHandler(deadLetterProcessor.errorHandler()) }
 }
