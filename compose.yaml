@@ -22,7 +22,10 @@ services:
       - 'mongodb_data:/data/db'
 
   postgres:
-    image: 'postgres:latest'
+    # Pinned deliberately. With 'latest' plus a persistent volume, the container fails to
+    # start the moment the image rolls to a new major ("database files are not compatible"),
+    # because the existing data directory was initialised by the previous major.
+    image: 'postgres:17'
     environment:
       - 'POSTGRES_DB=coffeeshop'
       - 'POSTGRES_PASSWORD=secret'
@@ -32,6 +35,39 @@ services:
     volumes:
       - 'postgres_data:/var/lib/postgresql/data'
 
+  # Event store. Deliberately NOT started with AXONIQ_AXONSERVER_STANDALONE=true:
+  # that auto-initialises the cluster with a *non-DCB* `default` context, and the free
+  # edition caps you at `_admin` + `default`, so there is then no way to add a DCB one.
+  # Instead the node starts uninitialised and axonserver-init below initialises it with
+  # DCB enabled, which Axon Framework 5 requires.
+  axonserver:
+    image: 'axoniq/axonserver:2026.0.4'
+    environment:
+      - 'AXONIQ_AXONSERVER_DEVMODE_ENABLED=true'
+    ports:
+      - '8024:8024'   # dashboard / REST
+      - '8124:8124'   # gRPC
+    volumes:
+      - 'axonserver_data:/axonserver/data'
+      - 'axonserver_events:/axonserver/events'
+
+  # One-shot: waits for Axon Server, then initialises the cluster with a DCB context.
+  # Re-running is harmless - an already-initialised node answers 406 and this exits 0.
+  axonserver-init:
+    image: 'curlimages/curl:8.11.1'
+    depends_on:
+      - axonserver
+    restart: 'no'
+    command:
+      - 'sh'
+      - '-c'
+      - |
+        until curl -sf http://axonserver:8024/actuator/health >/dev/null 2>&1; do sleep 2; done
+        curl -sS -X POST 'http://axonserver:8024/v2/cluster/init?dcb=true' || true
+        echo
+
 volumes:
   mongodb_data:
   postgres_data:
+  axonserver_data:
+  axonserver_events:

@@ -59,7 +59,10 @@ axon:
     # The ServiceLoader registration still supplies Axon metrics.
     enabled: false
   axonserver:
-    enabled: false
+    enabled: true
+    servers: localhost:8124
+    context: default
+    component-name: coffee-shop
   # Processor mode is declared in code (AxonConfig.kt) via EventProcessorDefinition
   # beans; only the tuning knobs are property-driven.
   eventhandling:

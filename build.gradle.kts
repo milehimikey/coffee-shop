@@ -20,11 +20,16 @@ repositories {
     mavenCentral()
 }
 
-extra["axon.version"] = "5.1.0"
+// AxonIQ moved the Axon Server connector out of the org.axonframework group at 5.1.0.
+// io.axoniq.framework:axoniq-framework-bom transitively imports org.axonframework:axon-framework-bom,
+// so this single BOM manages the framework, the Spring/metrics extensions, and the connector.
+// Licensed under the AxonIQ Terms of Service (evaluation use; commercial licence for
+// continued use) rather than Apache 2.0 - see https://www.axoniq.io/legal/terms-of-service
+extra["axon.version"] = "5.2.0"
 extra["testcontainers.version"] = "1.21.4"
 dependencyManagement {
     imports {
-        mavenBom("org.axonframework:axon-framework-bom:${property("axon.version")}")
+        mavenBom("io.axoniq.framework:axoniq-framework-bom:${property("axon.version")}")
     }
     dependencies {
         // Axon 5's Jackson 3 converter requires com.fasterxml.jackson.annotation.JsonSerializeAs,
@@ -53,6 +58,17 @@ dependencies {
     // Axon Framework
     implementation("org.axonframework.extensions.spring:axon-spring-boot-starter")
     implementation("org.axonframework.extensions.metrics:axon-metrics-micrometer")
+    // Axon Server: connector + auto-configuration. Depends on (does not replace) the
+    // axon-spring-boot-starter above, and brings in axon-server-connector transitively.
+    implementation("io.axoniq.framework:axoniq-spring-boot-starter")
+    // axoniq-spring-boot-autoconfigure's POM declares this twice - once at compile scope and
+    // again at test scope - so Gradle honours the test-scoped declaration and drops it from the
+    // runtime classpath. Its auto-configuration then fails with ClassNotFoundException on
+    // DeadLetterQueueConfiguration. Declare it explicitly to put it back.
+    // NB: deliberately NOT pulling in axoniq-postgresql - that installs a Postgres-backed
+    // event store, and events belong in Axon Server. Postgres keeps only the token store,
+    // the custom DLQ, and the reporting projection.
+    implementation("io.axoniq.framework:axoniq-dead-letter")
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
@@ -65,6 +81,7 @@ dependencies {
     testImplementation("org.testcontainers:mongodb:${property("testcontainers.version")}")
     testImplementation("org.testcontainers:postgresql:${property("testcontainers.version")}")
     testImplementation("org.axonframework:axon-test")
+    testImplementation("io.axoniq.framework:axoniq-testcontainer")
     testImplementation("org.awaitility:awaitility:4.2.2")
     testImplementation("org.awaitility:awaitility-kotlin:4.2.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
