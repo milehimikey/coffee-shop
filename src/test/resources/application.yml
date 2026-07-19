@@ -13,7 +13,10 @@ axon:
     # MetricsConfigurationEnhancer registration that fails context startup.
     enabled: false
   axonserver:
-    enabled: false
+    # Integration tests run against a real Axon Server container (see
+    # TestcontainersConfiguration). The address comes from @ServiceConnection.
+    enabled: true
+    context: default
   # Processor mode is declared in code (AxonConfig.kt) via EventProcessorDefinition beans.
   eventhandling:
     processors:

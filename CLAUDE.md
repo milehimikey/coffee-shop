@@ -138,6 +138,18 @@ fixture = AxonTestFixture.with(
 
 These build their own configurer rather than reusing production wiring, so they can drift from it.
 
-**Integration tests** (`CoffeeShopApplicationTests`) use `TestRestTemplate` + Testcontainers + Awaitility, annotated `@DirtiesContext(AFTER_CLASS)`.
+**Integration tests** run against a real Axon Server container (`TestcontainersConfiguration`), using `TestRestTemplate` + Testcontainers + Awaitility, annotated `@DirtiesContext(AFTER_CLASS)`.
+
+`AxonServerContainer` must be built with `.withDcbContext(true)`. Axon 5 requires a DCB-enabled context and a default-initialised node has none. `@ServiceConnection` supplies the address via `AxonServerTestContainerConnectionDetailsFactory` — no `@DynamicPropertySource` needed.
+
+### Test isolation
+
+**Keep `@DirtiesContext(AFTER_CLASS)` on every integration test class.** It is what makes them independent: disposing the context disposes the container beans, so each class gets a fresh Axon Server, PostgreSQL and MongoDB. Verified — a two-class run creates two of each container.
+
+Remove it and the containers become shared, at which point events persist across classes and assertions turn order-dependent.
+
+Do **not** "fix" that by purging events from Axon Server between classes. Tracking tokens live in PostgreSQL and would survive the purge, leaving processors with tokens pointing past the end of a truncated stream. Either reset both stores or neither.
+
+The cost of this isolation is startup time — roughly 20s per additional class. Prefer adding tests to an existing class over adding a new class.
 
 Assert on observable state, not just non-null. Two bugs in this repo survived for exactly that reason: a DLQ test that asserted nothing about the DLQ, and an idempotency test asserting `processingGroup` was non-null while every record was landing in the `"default"` fallback.

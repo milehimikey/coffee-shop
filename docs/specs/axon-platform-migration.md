@@ -269,13 +269,22 @@ Add an Axon Server container alongside the existing Mongo and Postgres `@Service
 
 Set `axon.axonserver.enabled: true`. Also delete the `dlq.enabled: true` entries under each processor. **Partially wrong:** that key is dead config on plain OSS Axon 5, but once `io.axoniq.framework:axoniq-dead-letter` is on the classpath a real `DeadLetterQueueProcessorProperties$Dlq` binds it. It is left disabled here because the platform DLQ is a licensed addon that does not capture events without a license.
 
-### New isolation problem to solve
+### Isolation problem — RESOLVED, no purge needed
 
-`CoffeeShopApplicationTests` is `@DirtiesContext(AFTER_CLASS)` and relies on `ddl-auto: create` giving it a clean event store. Once events live in Axon Server, a container shared across the suite retains events between classes, and the projection and idempotency assertions become order-dependent. The existing `should ensure idempotent event processing` test already calls `idempotencyRepository.deleteAll()` on a shared context, which compounds the problem.
+The concern was that a shared Axon Server container would retain events across test classes,
+making projection and idempotency assertions order-dependent.
 
-Pick one:
-- Reset the Axon Server context between classes (`AxonServerContainerUtils` has purge support if the commercial `axon-test` provides it; otherwise hit the server's REST API on 8024), or
-- Give the class its own container instance.
+**It does not happen.** `@DirtiesContext(AFTER_CLASS)` disposes the Testcontainers beans along
+with the Spring context, so every integration test class gets a fresh Axon Server, PostgreSQL
+and MongoDB. Verified empirically: a two-class run creates two of each container.
+
+Neither option this spec proposed is required. In fact the purge option would have been a
+**trap**: `AxonServerContainerUtils.purgeEventsFromAxonServer` clears the event stream, but
+tracking tokens live in PostgreSQL and would survive, leaving processors with tokens pointing
+past the end of a truncated stream. Reset both stores or neither.
+
+The real cost is startup time — roughly 20s per additional test class. Prefer adding tests to
+an existing class.
 
 ### Coverage gaps to close
 
