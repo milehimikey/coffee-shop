@@ -29,6 +29,9 @@ import wtf.milehimikey.coffeeshop.orders.FindOrdersByCustomerId
 import wtf.milehimikey.coffeeshop.orders.FindOrdersByStatus
 import wtf.milehimikey.coffeeshop.orders.OrderView
 import wtf.milehimikey.coffeeshop.orders.SubmitOrder
+import wtf.milehimikey.coffeeshop.reporting.FindAllRevenue
+import wtf.milehimikey.coffeeshop.reporting.FindRevenueByDate
+import wtf.milehimikey.coffeeshop.reporting.RevenueView
 import wtf.milehimikey.coffeeshop.payments.CreatePayment
 import wtf.milehimikey.coffeeshop.payments.FailPayment
 import wtf.milehimikey.coffeeshop.payments.FindAllPayments
@@ -46,6 +49,7 @@ import wtf.milehimikey.coffeeshop.products.FindProductById
 import wtf.milehimikey.coffeeshop.products.ProductView
 import wtf.milehimikey.coffeeshop.products.UpdateProduct
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.util.concurrent.CompletableFuture
 
 @RestController
@@ -358,7 +362,26 @@ class RestEndpoint(
         return ResponseEntity.ok(result)
     }
 
+    // Reporting - JPA/PostgreSQL read model
 
+    @GetMapping("/reporting/revenue")
+    fun getRevenue(@RequestParam(required = false) limit: Int?): CompletableFuture<List<RevenueView>> {
+        return queryGateway.queryMany(FindAllRevenue(limit ?: 30), RevenueView::class.java)
+    }
+
+    @GetMapping("/reporting/revenue/{date}")
+    fun getRevenueByDate(@PathVariable date: String): CompletableFuture<ResponseEntity<RevenueView>> {
+        return queryGateway.query(
+            FindRevenueByDate(LocalDate.parse(date)),
+            RevenueView::class.java
+        ).thenApply { revenue ->
+            if (revenue != null) {
+                ResponseEntity.ok(revenue)
+            } else {
+                ResponseEntity.notFound().build()
+            }
+        }
+    }
 }
 
 // Product Request DTOs

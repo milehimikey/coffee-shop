@@ -76,3 +76,6 @@ axon:
       product:
         thread-count: 8
         batch-size: 10
+      reporting:
+        thread-count: 4
+        batch-size: 10

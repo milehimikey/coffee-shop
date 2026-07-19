@@ -23,3 +23,5 @@ axon:
         thread-count: 8
       product:
         thread-count: 8
+      reporting:
+        thread-count: 4

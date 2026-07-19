@@ -1,6 +1,7 @@
 package wtf.milehimikey.coffeeshop
 
 import org.awaitility.Awaitility.await
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -15,6 +16,8 @@ import wtf.milehimikey.coffeeshop.config.IdempotencyRepository
 import wtf.milehimikey.coffeeshop.orders.OrderView
 import wtf.milehimikey.coffeeshop.payments.PaymentView
 import wtf.milehimikey.coffeeshop.products.ProductView
+import org.springframework.jdbc.core.JdbcTemplate
+import wtf.milehimikey.coffeeshop.reporting.DailyRevenueRepository
 import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
@@ -33,8 +36,101 @@ class CoffeeShopApplicationTests {
     @Autowired
     private lateinit var idempotencyRepository: IdempotencyRepository
 
+    @Autowired
+    private lateinit var dailyRevenueRepository: DailyRevenueRepository
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
     @Test
     fun contextLoads() {
+    }
+
+    @Test
+    @Disabled(
+        "Blocked on an AxonIQ licence. The platform's Sequenced Dead-Letter Queue is a licensed " +
+        "addon ('framework.dead_letter_queue'); without a licence it is detected but never " +
+        "enrols the failing event, and enabling it starts the 15-minute JVM shutdown timer. " +
+        "The custom ErrorHandler does not fire either - the pooled processor logs " +
+        "'Aborting Work Package' instead. Re-enable once a licence is in place."
+    )
+    fun `should route a failing event to the dead letter queue`() {
+        // products/EventProcessors.kt throws for a price of exactly 99.99
+        fun dlqCount(): Int =
+            jdbcTemplate.queryForObject("select count(*) from dead_letter_entry", Int::class.java) ?: 0
+
+        val before = dlqCount()
+
+        val response = restTemplate.postForEntity(
+            "/api/products",
+            CreateProductRequest(
+                name = "Trip Wire",
+                description = "Deliberately fails in the product projection",
+                price = BigDecimal("99.99"),
+                sku = "DLQ-TRIP-1"
+            ),
+            String::class.java
+        )
+        // The command itself succeeds - the failure happens downstream in the projection
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+
+        await().atMost(30, TimeUnit.SECONDS).untilAsserted {
+            assertTrue(
+                dlqCount() > before,
+                "expected the failing ProductCreated event to land in dead_letter_entry"
+            )
+        }
+    }
+
+    // Reporting projection (JPA / PostgreSQL)
+
+    @Test
+    fun `should project completed order and processed payment into the JPA revenue report`() {
+        val before = dailyRevenueRepository.findAll()
+            .sumOf { it.orderCount }
+
+        // Drive an order all the way to COMPLETED
+        val orderId = restTemplate.postForEntity(
+            "/api/orders", CreateOrderRequest(customerId = "reporting-customer"), String::class.java
+        ).body
+        assertNotNull(orderId)
+
+        restTemplate.postForEntity(
+            "/api/orders/{orderId}/items",
+            AddItemToOrderRequest(
+                productId = "reporting-product",
+                productName = "Cortado",
+                quantity = 2,
+                price = BigDecimal("3.25")
+            ),
+            String::class.java,
+            orderId
+        )
+        listOf("submit", "deliver", "complete").forEach { step ->
+            val response = restTemplate.postForEntity(
+                "/api/orders/{orderId}/$step", null, String::class.java, orderId
+            )
+            assertEquals(HttpStatus.OK, response.statusCode, "step '$step' failed")
+        }
+
+        // The reporting processor is separate from the Mongo ones, so it needs its own wait
+        await().atMost(15, TimeUnit.SECONDS).untilAsserted {
+            val total = dailyRevenueRepository.findAll().sumOf { it.orderCount }
+            assertTrue(total > before, "expected the completed order to be counted in daily_revenue")
+        }
+
+        val summaries = dailyRevenueRepository.findAll()
+        assertTrue(summaries.isNotEmpty(), "daily_revenue should not be empty")
+        assertTrue(
+            summaries.any { it.orderRevenue > BigDecimal.ZERO },
+            "expected non-zero order revenue, got ${summaries.map { it.orderRevenue }}"
+        )
+
+        // And the same rollup must be reachable through the query side
+        val viaQuery = restTemplate.getForEntity("/api/reporting/revenue", Array<Any>::class.java)
+        assertEquals(HttpStatus.OK, viaQuery.statusCode)
+        assertTrue((viaQuery.body?.size ?: 0) > 0, "GET /api/reporting/revenue returned nothing")
     }
 
     // Product REST Endpoint Tests
