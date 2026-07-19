@@ -20,6 +20,7 @@ import wtf.milehimikey.coffeeshop.reporting.DailyRevenueRepository
 import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -999,6 +1000,19 @@ class CoffeeShopApplicationTests {
         assertNotNull(record.processingGroup, "Processing group should be present")
         assertNotNull(record.headers, "Headers should be present")
         assertTrue(record.headers.isNotEmpty(), "Headers should not be empty")
+
+        // Records must be filed under the real processing group. Asserting only "not null"
+        // hid the fact that every record was landing in the fallback group, which collapses
+        // all processors into a single idempotency namespace.
+        val groups = records.map { it.processingGroup }.toSet()
+        assertTrue(
+            groups.any { it in setOf("product", "order", "payment", "reporting") },
+            "expected records filed under real processing groups, got $groups"
+        )
+        assertFalse(
+            groups.contains("default"),
+            "no record should fall back to the 'default' group, got $groups"
+        )
 
         // Verify that the product was created in the read model
         val productView = restTemplate.getForObject(
