@@ -1,7 +1,6 @@
 package wtf.milehimikey.coffeeshop
 
 import org.awaitility.Awaitility.await
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -12,11 +11,11 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.ActiveProfiles
+import wtf.milehimikey.coffeeshop.config.FailedEventRepository
 import wtf.milehimikey.coffeeshop.config.IdempotencyRepository
 import wtf.milehimikey.coffeeshop.orders.OrderView
 import wtf.milehimikey.coffeeshop.payments.PaymentView
 import wtf.milehimikey.coffeeshop.products.ProductView
-import org.springframework.jdbc.core.JdbcTemplate
 import wtf.milehimikey.coffeeshop.reporting.DailyRevenueRepository
 import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
@@ -40,26 +39,16 @@ class CoffeeShopApplicationTests {
     private lateinit var dailyRevenueRepository: DailyRevenueRepository
 
     @Autowired
-    private lateinit var jdbcTemplate: JdbcTemplate
+    private lateinit var failedEventRepository: FailedEventRepository
 
     @Test
     fun contextLoads() {
     }
 
     @Test
-    @Disabled(
-        "Blocked on an AxonIQ licence. The platform's Sequenced Dead-Letter Queue is a licensed " +
-        "addon ('framework.dead_letter_queue'); without a licence it is detected but never " +
-        "enrols the failing event, and enabling it starts the 15-minute JVM shutdown timer. " +
-        "The custom ErrorHandler does not fire either - the pooled processor logs " +
-        "'Aborting Work Package' instead. Re-enable once a licence is in place."
-    )
     fun `should route a failing event to the dead letter queue`() {
         // products/EventProcessors.kt throws for a price of exactly 99.99
-        fun dlqCount(): Int =
-            jdbcTemplate.queryForObject("select count(*) from dead_letter_entry", Int::class.java) ?: 0
-
-        val before = dlqCount()
+        val before = failedEventRepository.count()
 
         val response = restTemplate.postForEntity(
             "/api/products",
@@ -77,10 +66,15 @@ class CoffeeShopApplicationTests {
 
         await().atMost(30, TimeUnit.SECONDS).untilAsserted {
             assertTrue(
-                dlqCount() > before,
-                "expected the failing ProductCreated event to land in dead_letter_entry"
+                failedEventRepository.count() > before,
+                "expected the failing ProductCreated event to reach the custom dead-letter store"
             )
         }
+
+        assertTrue(
+            failedEventRepository.findByProcessingGroup("product").isNotEmpty(),
+            "the failed event should be recorded against the 'product' processing group"
+        )
     }
 
     // Reporting projection (JPA / PostgreSQL)
