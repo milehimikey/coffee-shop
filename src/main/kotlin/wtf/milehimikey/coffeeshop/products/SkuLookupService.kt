@@ -15,8 +15,13 @@ import java.util.concurrent.ConcurrentHashMap
  * 2. Name-based Generation - Generate SKU from product name (e.g., "Espresso" -> "ESP-LEGACY")
  * 3. ID-based Generation - Fallback using product ID (e.g., "PROD-{id}")
  * 
- * This service is used by the ProductCreatedUpcaster to add SKU fields to historical events
- * that were created before the SKU field was required.
+ * NOT CURRENTLY IN USE. This existed to serve `ProductCreatedUpcaster`, which was deleted in
+ * commit 1338313. No production code calls it today; it retains test coverage only.
+ *
+ * Legacy `ProductCreated` events (no SKU) are now handled by `sku: String? = null` on the event
+ * plus the `?:` fallback in `Product.kt`'s `@EntityCreator`, which assigns `LEGACY-PENDING-{id}`.
+ *
+ * Either wire this in as that fallback's implementation or delete it - do not assume it runs.
  */
 @Service
 class SkuLookupService {

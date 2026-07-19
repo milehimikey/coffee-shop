@@ -580,9 +580,10 @@ class DataGenerator(
     }
 
     /**
-     * Generates legacy products WITHOUT SKU fields to demonstrate the upcaster.
-     * These products will have ProductCreated events without SKU, which will be
-     * added by the ProductCreatedUpcaster when the events are replayed.
+     * Generates legacy products WITHOUT SKU fields.
+     * These emit ProductCreated events with sku = null. The SKU seen when the entity is
+     * loaded comes from the `?:` fallback in Product.kt's @EntityCreator, not from an
+     * upcaster - ProductCreatedUpcaster was deleted in commit 1338313.
      *
      * @param count Number of legacy products to generate
      * @return List of generated product IDs
@@ -621,23 +622,24 @@ class DataGenerator(
         }
 
         logger.info("Generated ${productIds.size} legacy products without SKU")
-        logger.info("These products will have SKU added by the upcaster when events are replayed")
+        logger.info("These products emit ProductCreated with sku = null; the LEGACY-PENDING default is applied on load")
 
         return productIds
     }
 
     /**
-     * Demonstrates the upcaster functionality by:
-     * 1. Querying a legacy product to show it has a SKU (added by upcaster)
-     * 2. Updating the product to trigger event replay
-     * 3. Logging the process to show the upcaster in action
+     * Misnamed for historical reasons: there is no upcaster. This demonstrates the
+     * @EntityCreator SKU fallback by:
+     * 1. Querying a legacy product to show it has a SKU (supplied by the fallback)
+     * 2. Updating the product to trigger event sourcing of the entity
+     * 3. Logging the process
      *
      * @param productId Optional product ID to demonstrate with. If not provided, uses the first available product.
      * @return Summary of the demonstration
      */
     fun demonstrateUpcaster(productId: String? = null): UpcasterDemonstrationResult {
         logger.info("========================================")
-        logger.info("UPCASTER DEMONSTRATION")
+        logger.info("LEGACY SKU FALLBACK DEMONSTRATION")
         logger.info("========================================")
 
         try {
@@ -669,9 +671,9 @@ class DataGenerator(
 
             logger.info("Step 1: Queried product '${product.name}' (ID: ${product.id})")
             logger.info("        SKU: ${product.sku}")
-            logger.info("        Note: This SKU was added by the ProductCreatedUpcaster!")
+            logger.info("        Note: this SKU comes from Product.kt's @EntityCreator fallback, not an upcaster")
             logger.info("")
-            logger.info("Step 2: Updating product to trigger event replay...")
+            logger.info("Step 2: Updating product to force the entity to be sourced from its events...")
 
             // Update the product to trigger event replay
             sendAndWait(
@@ -685,8 +687,8 @@ class DataGenerator(
 
             logger.info("        Product updated successfully")
             logger.info("")
-            logger.info("Step 3: Check the logs above for upcaster activity")
-            logger.info("        Look for: 'Upcasting ProductCreated event for product ${product.id}'")
+            logger.info("Step 3: The stored ProductCreated event still has sku = null")
+            logger.info("        Nothing rewrites it - the default is re-applied on every load")
             logger.info("")
             logger.info("========================================")
             logger.info("DEMONSTRATION COMPLETE")
@@ -694,8 +696,8 @@ class DataGenerator(
 
             return UpcasterDemonstrationResult(
                 success = true,
-                message = "Successfully demonstrated upcaster for product '${product.name}'. " +
-                        "The SKU '${product.sku}' was added by the ProductCreatedUpcaster when the " +
+                message = "Successfully demonstrated the legacy SKU fallback for product '${product.name}'. " +
+                        "The SKU '${product.sku}' was supplied by Product.kt's @EntityCreator when the " +
                         "ProductCreated event (which had no SKU) was replayed from the event store.",
                 productId = product.id,
                 productName = product.name,
@@ -733,7 +735,7 @@ data class DeadLetterTriggerResult(
 )
 
 /**
- * Result of upcaster demonstration.
+ * Result of the legacy SKU fallback demonstration (historically called the upcaster demo).
  */
 data class UpcasterDemonstrationResult(
     val success: Boolean,

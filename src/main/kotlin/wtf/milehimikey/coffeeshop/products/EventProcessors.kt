@@ -27,7 +27,8 @@ class ProductEventProcessor(private val productRepository: ProductRepository) {
             throw RuntimeException("Simulated error processing ProductCreated event for product with price $ERROR_TRIGGERING_PRICE")
         }
 
-        // SKU may be null for legacy products - the upcaster will add it when the aggregate is loaded
+        // SKU may be null for legacy products. The projection stores it as-is; the
+        // LEGACY-PENDING default is applied only when the entity is sourced (Product.kt).
         // For the projection, we can store null and it will be updated when the product is modified
         productRepository.save(
             ProductDocument(
