@@ -114,8 +114,6 @@ Dashboard: http://localhost:8024
 
 There is **no upcaster**. `ProductCreatedUpcaster` was deleted in `1338313`. Legacy `ProductCreated` events (no SKU) are handled by `sku: String? = null` on the event plus the `?:` fallback in `Product.kt`'s `@EntityCreator`, which assigns `LEGACY-PENDING-{id}`.
 
-`SkuLookupService.kt` is **currently unused by production code** — it existed to serve the deleted upcaster. It retains test coverage. Delete it or wire it in; do not assume it runs.
-
 ## REST API
 
 All endpoints in `RestEndpoint.kt`. Admin UI (Thymeleaf) in `admin/`. Custom actuator endpoint `/actuator/deadletters` exposes DLQ state.

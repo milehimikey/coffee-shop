@@ -134,10 +134,6 @@ The generator UI's **"Demonstrate Upcaster"** button and the
 `POST /api/generate/demonstrate-upcaster` endpoint still work, but they demonstrate this
 fallback, not upcasting. Both are misnamed.
 
-> `SkuLookupService.kt` (CSV → name-based → ID-based SKU derivation) existed to serve the
-> deleted upcaster and is **currently not called by any production code**. It still has test
-> coverage. Treat it as dead code pending removal or rewiring.
-
 ## Features
 
 ### Data Generation

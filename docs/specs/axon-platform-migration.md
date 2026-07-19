@@ -256,7 +256,7 @@ Also uncomment and extend the `coffee-shop` service's `depends_on` and environme
 
 ## 7. Tests
 
-**Unaffected:** `ProductCommandTests`, `PaymentCommandTests`, and `OrderCommandTests` build `AxonTestFixture` from a hand-rolled `EventSourcingConfigurer` and never touch Axon Server. `SkuLookupServiceTest` is a pure unit test.
+**Unaffected:** `ProductCommandTests`, `PaymentCommandTests`, and `OrderCommandTests` build `AxonTestFixture` from a hand-rolled `EventSourcingConfigurer` and never touch Axon Server.
 
 ### `TestcontainersConfiguration.kt`
 
@@ -288,7 +288,7 @@ Pick one:
 
 - **`CLAUDE.md`** — says "Axon Framework 4.12", describes `@Aggregate` / `@TargetAggregateIdentifier` / `AggregateTestFixture`, and documents a `ProductCreatedUpcaster` that was deleted in `1338313`. Rewrite for Axon 5 + Axon Server, and document PostgreSQL's new role.
 - **`README.md`** (lines ~89, 167–178) — same stale upcaster references. Schema evolution is now handled by `sku: String? = null` on the event plus the `?:` fallback in `Product.kt`'s `@EntityCreator`.
-- **`products/SkuLookupService.kt:18`** and **`admin/DataGenerator.kt:638-706`** — KDoc and log lines still credit the deleted upcaster. The "Demonstrate Upcaster" button in `templates/generator.html` still works, but for a different reason than it claims.
+- **`admin/DataGenerator.kt`** — log lines credited the deleted upcaster; corrected. The "Demonstrate Upcaster" button in `templates/generator.html` still works, but for a different reason than it claims, and is now labelled as such. `products/SkuLookupService.kt` and its test were deleted outright - the service had no production callers once the upcaster was gone.
 
 ---
 
