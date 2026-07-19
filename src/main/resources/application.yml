@@ -15,14 +15,15 @@ spring:
   application:
     name: coffee-shop
 
-  # MongoDB Configuration (Spring Boot 4.0 - moved from spring.data.mongodb to spring.mongodb)
-  mongodb:
-    host: localhost
-    port: 27017
-    database: coffeeshop
-    username: root
-    password: secret
-    authentication-database: admin
+  # MongoDB Configuration
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: coffeeshop
+      username: root
+      password: secret
+      authentication-database: admin
 
   # PostgreSQL Configuration for Axon Event Store
   datasource:
@@ -52,25 +53,23 @@ axon:
   metrics:
     micrometer:
       dimensional: true
-    auto-configuration:
-      enabled: true
+    # Deliberately off. axon-metrics-micrometer registers MetricsConfigurationEnhancer
+    # through BOTH META-INF/services (ServiceLoader) and Spring auto-configuration.
+    # Leaving both active fails startup with "Duplicate key MetricsConfigurationEnhancer".
+    # The ServiceLoader registration still supplies Axon metrics.
+    enabled: false
   axonserver:
     enabled: false
-  serializer:
-    general: jackson
-    events: jackson
-    messages: jackson
+  # Processor mode is declared in code (AxonConfig.kt) via EventProcessorDefinition
+  # beans; only the tuning knobs are property-driven.
   eventhandling:
     processors:
       order:
-        mode: pooled
         thread-count: 8
         batch-size: 10
       payment:
-        mode: pooled
         thread-count: 8
         batch-size: 10
       product:
-        mode: pooled
         thread-count: 8
         batch-size: 10

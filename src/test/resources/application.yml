@@ -8,27 +8,18 @@ spring:
 
 # Axon Configuration for tests
 axon:
+  metrics:
+    # See src/main/resources/application.yml - avoids the duplicate
+    # MetricsConfigurationEnhancer registration that fails context startup.
+    enabled: false
   axonserver:
     enabled: false
-  serializer:
-    general: jackson
-    events: jackson
-    messages: jackson
-  # Configure event processors
+  # Processor mode is declared in code (AxonConfig.kt) via EventProcessorDefinition beans.
   eventhandling:
     processors:
       payment:
-        mode: pooled
         thread-count: 8
-        dlq:
-          enabled: true
       order:
-        mode: pooled
         thread-count: 8
-        dlq:
-          enabled: true
       product:
-        mode: pooled
         thread-count: 8
-        dlq:
-          enabled: true

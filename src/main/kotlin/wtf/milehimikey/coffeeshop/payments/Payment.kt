@@ -20,8 +20,9 @@ class Payment {
     companion object {
         @JvmStatic
         @CommandHandler
-        fun create(command: CreatePayment, appender: EventAppender) {
+        fun create(command: CreatePayment, appender: EventAppender): String {
             appender.append(PaymentCreated(id = command.id, orderId = command.orderId, amount = command.amount))
+            return command.id
         }
     }
 

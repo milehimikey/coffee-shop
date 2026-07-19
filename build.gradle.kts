@@ -22,10 +22,15 @@ repositories {
 
 extra["axon.version"] = "5.1.0"
 extra["testcontainers.version"] = "1.21.4"
-
 dependencyManagement {
     imports {
         mavenBom("org.axonframework:axon-framework-bom:${property("axon.version")}")
+    }
+    dependencies {
+        // Axon 5's Jackson 3 converter requires com.fasterxml.jackson.annotation.JsonSerializeAs,
+        // which only exists from jackson-annotations 2.21. Spring Boot 3.5.0 otherwise pins the
+        // Jackson 2 stack to 2.19.0 and startup fails with NoClassDefFoundError.
+        dependency("com.fasterxml.jackson.core:jackson-annotations:2.21")
     }
 }
 
