@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component
  * This component is activated by the "legacy-data" Spring profile.
  * 
  * Purpose:
- * - Generates products WITHOUT SKU fields to demonstrate the ProductCreatedUpcaster
+ * - Generates products WITHOUT SKU fields, exercising the @EntityCreator SKU fallback
+ *   (ProductCreatedUpcaster was deleted in commit 1338313)
  * - These products simulate data that existed before the SKU field was added
  * - The upcaster will add SKU fields when these events are replayed from the event store
  * 

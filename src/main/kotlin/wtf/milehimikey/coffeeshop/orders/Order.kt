@@ -21,8 +21,9 @@ class Order {
     companion object {
         @JvmStatic
         @CommandHandler
-        fun create(command: CreateOrder, appender: EventAppender) {
+        fun create(command: CreateOrder, appender: EventAppender): String {
             appender.append(OrderCreated(id = command.id, customerId = command.customerId))
+            return command.id
         }
     }
 

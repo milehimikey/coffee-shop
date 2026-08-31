@@ -1,12 +1,7 @@
 <entity-mappings xmlns="http://java.sun.com/xml/ns/persistence/orm" version="2.0">
-    <entity class="org.axonframework.eventsourcing.eventstore.jpa.AggregateEventEntry">
-        <attribute-override name="payload">
-            <column name="payload" column-definition="BYTEA"></column>
-        </attribute-override>
-        <attribute-override name="metadata">
-            <column name="metadata" column-definition="BYTEA"></column>
-        </attribute-override>
-    </entity>
+    <!-- Events now live in Axon Server, so the JPA event-store mapping is gone.
+         The token store stays on PostgreSQL - the connector ships no TokenStore -
+         and still needs its BYTEA override. -->
     <entity class="org.axonframework.messaging.eventhandling.processing.streaming.token.store.jpa.TokenEntry">
         <attribute-override name="token">
             <column name="token" column-definition="BYTEA"></column>

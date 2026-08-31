@@ -23,6 +23,27 @@ class IdempotencyInterceptor(private val idempotencyRepository: IdempotencyRepos
     companion object {
         const val AXON_MESSAGE_AGGREGATE_ID = "axon-message-aggregate-id"
         const val AXON_REPLAY = "axon-replay"
+
+        /** Used when the processing group cannot be determined; see [deriveProcessingGroup]. */
+        const val UNKNOWN_PROCESSING_GROUP = "default"
+
+        /**
+         * Pooled streaming processors name their worker threads `WorkPackage[<processor>]-<segment>`;
+         * subscribing processors use `Processor[<processor>]`.
+         *
+         * The original pattern matched only `Processor[...]`, which a pooled processor never
+         * produces - so every event fell through to [UNKNOWN_PROCESSING_GROUP] and the whole
+         * application shared one idempotency namespace instead of one per processing group.
+         */
+        private val PROCESSING_GROUP_PATTERN = Regex("""(?:WorkPackage|Processor)\[([^\[\]]+)]""")
+
+        /**
+         * Extracts the processing group from a processor thread name. Package-visible so the
+         * thread-naming contract this depends on is pinned by a test rather than discovered in
+         * production - it is the fragile part of this class.
+         */
+        fun processingGroupFromThreadName(threadName: String): String? =
+            PROCESSING_GROUP_PATTERN.find(threadName)?.groupValues?.get(1)
     }
 
     override fun interceptOnHandle(
@@ -31,7 +52,7 @@ class IdempotencyInterceptor(private val idempotencyRepository: IdempotencyRepos
         chain: MessageHandlerInterceptorChain<EventMessage>
     ): MessageStream<*> {
         val eventId = message.identifier()
-        val processingGroup = deriveProcessingGroupFromThread()
+        val processingGroup = deriveProcessingGroup()
         val aggregateId = extractAggregateId(message)
         val isReplay = isReplayEvent(message)
         val allHeaders = message.metadata().toMap()
@@ -65,10 +86,24 @@ class IdempotencyInterceptor(private val idempotencyRepository: IdempotencyRepos
         }
     }
 
-    private fun deriveProcessingGroupFromThread(): String {
+    /**
+     * Derives the processing group from the current thread's name.
+     *
+     * This is inherently fragile - Axon exposes no processing group on the [ProcessingContext],
+     * so there is nothing better to read. It now warns instead of silently degrading, because a
+     * miss collapses every processor into one idempotency namespace, which quietly suppresses
+     * events that different projections each need to see.
+     */
+    private fun deriveProcessingGroup(): String {
         val threadName = Thread.currentThread().name
-        val match = Regex("Processor\\[([^]]+)]").find(threadName)
-        return match?.groupValues?.get(1) ?: "default"
+        return processingGroupFromThreadName(threadName) ?: run {
+            logger.warn(
+                "Could not derive a processing group from thread name '{}'; falling back to '{}'. " +
+                    "Idempotency is only reliable per group, so this needs the pattern updating.",
+                threadName, UNKNOWN_PROCESSING_GROUP
+            )
+            UNKNOWN_PROCESSING_GROUP
+        }
     }
 
     private fun extractAggregateId(message: EventMessage): String? {

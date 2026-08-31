@@ -21,7 +21,7 @@ class Product {
     companion object {
         @JvmStatic
         @CommandHandler
-        fun create(command: CreateProduct, appender: EventAppender) {
+        fun create(command: CreateProduct, appender: EventAppender): String {
             appender.append(
                 ProductCreated(
                     id = command.id,
@@ -31,11 +31,12 @@ class Product {
                     sku = command.sku
                 )
             )
+            return command.id
         }
 
         @JvmStatic
         @CommandHandler
-        fun createLegacy(command: CreateLegacyProduct, appender: EventAppender) {
+        fun createLegacy(command: CreateLegacyProduct, appender: EventAppender): String {
             appender.append(
                 ProductCreated(
                     id = command.id,
@@ -45,6 +46,7 @@ class Product {
                     sku = null
                 )
             )
+            return command.id
         }
     }
 

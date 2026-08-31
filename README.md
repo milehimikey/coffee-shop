@@ -3,10 +3,10 @@
 A demonstration application showcasing various features of the Axon Framework, including:
 - Event Sourcing
 - CQRS (Command Query Responsibility Segregation)
-- Event Upcasting (Schema Evolution)
-- Saga Pattern
+- Schema Evolution (nullable fields + defaults at reconstruction)
+- Distributed command/query buses over Axon Server
 - Dead Letter Queue Processing
-- Aggregate Snapshots
+- Two read-model technologies from one event stream (MongoDB + PostgreSQL)
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ A demonstration application showcasing various features of the Axon Framework, i
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-- [Demonstrating Event Upcasting](#demonstrating-event-upcasting)
+- [Schema Evolution (Legacy Products Without SKU)](#schema-evolution-legacy-products-without-sku)
 - [Features](#features)
 - [API Documentation](#api-documentation)
 - [Technology Stack](#technology-stack)
@@ -29,34 +29,38 @@ The application follows a CQRS architecture with event sourcing:
 
 - **Command Side**: Handles commands and produces domain events
 - **Query Side**: Maintains read models optimized for queries
-- **Event Store**: Stores all domain events (using Postgres)
-- **Projections**: Update query models based on events
-- **Sagas**: Coordinate complex business processes across aggregates
+- **Event Store**: Axon Server (DCB context), reached over gRPC
+- **Command/Query Buses**: Distributed via Axon Server, not in-process
+- **Projections**: Update query models based on events - MongoDB for operational views, PostgreSQL for reporting
 
 ### Domain Model
 
-- **Product Aggregate**: Manages product lifecycle (create, update, delete)
-- **Order Aggregate**: Manages order lifecycle (create, add items, submit, complete, deliver)
-- **Payment Aggregate**: Manages payment processing (create, process, fail, refund)
+Entities are Axon 5 `@EventSourced` classes, not Axon 4 aggregates.
+
+- **Product**: Manages product lifecycle (create, update, delete)
+- **Order**: Manages order lifecycle (create, add items, submit, deliver, complete)
+- **Payment**: Manages payment processing (create, process, fail, refund)
+- **Reporting**: Read-only daily revenue rollup on PostgreSQL, fed by `OrderCompleted` and `PaymentProcessed`
 
 ## Prerequisites
 
 - Java 21 or higher
-- Docker and Docker Compose (for Postgres and MongoDB)
+- Docker and Docker Compose (for Axon Server, PostgreSQL and MongoDB)
 - Gradle (wrapper included)
 
 ## Getting Started
 
 ### 1. Start Infrastructure
 
-Start Axon Server and MongoDB using Docker Compose:
+Start Axon Server, PostgreSQL and MongoDB using Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
 This will start:
-- Postgres on port 5432
+- Axon Server on ports 8024 (dashboard) and 8124 (gRPC)
+- PostgreSQL on port 5432
 - MongoDB on port 27017
 
 ### 2. Build the Application
@@ -72,7 +76,7 @@ This will start:
 ./gradlew bootRun
 ```
 
-**With Legacy Data (for Upcaster Demo):**
+**With Legacy Data (products whose events carry no SKU):**
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=legacy-data'
 ```
@@ -84,98 +88,51 @@ The application will start on `http://localhost:8080`
 - **Dashboard**: http://localhost:8080/
 - **Data Generator**: http://localhost:8080/generator
 
-## Demonstrating Event Upcasting
+## Schema Evolution (Legacy Products Without SKU)
 
-Event upcasting is a powerful feature for handling schema evolution in event-sourced systems. This application demonstrates upcasting with the `ProductCreatedUpcaster`, which adds SKU fields to old `ProductCreated` events.
+Legacy `ProductCreated` events carry no SKU. They are handled by a nullable field plus a
+default at reconstruction time — **not** by an upcaster.
 
-### Background
+`ProductCreatedUpcaster` was deleted in commit `1338313`. Axon 5 handles schema evolution by
+payload conversion at handling time rather than an upcaster chain, and for this case a
+nullable field is sufficient.
 
-In the early version of this application, products didn't have SKU fields. Later, we added SKU as a required field. The upcaster allows old events (without SKU) to be automatically upgraded when they're replayed from the event store.
+### How it works
 
-### Step-by-Step Demo
-
-#### Option 1: Automatic Demo (Recommended)
-
-1. **Start the application with the legacy-data profile:**
-   ```bash
-   ./gradlew bootRun --args='--spring.profiles.active=legacy-data'
+1. `Products.Events.kt` declares `sku: String? = null`, so old events deserialize cleanly.
+2. `Product.kt`'s `@EntityCreator` applies the fallback when loading the entity:
+   ```kotlin
+   sku = event.sku ?: "LEGACY-PENDING-${event.id.take(8)}"
    ```
+3. Nothing rewrites stored events. The original event keeps `sku = null` forever; the default
+   is applied on every load.
 
-2. **The application will automatically:**
-   - Generate 10 legacy products (without SKU)
-   - Display instructions in the console
+### Trying it
 
-3. **Demonstrate the upcaster using the UI:**
-   - Navigate to http://localhost:8080/generator
-   - Click the **"Demonstrate Upcaster"** button
-   - Check the application logs for upcaster activity
+Start with legacy data, which generates products whose events have no SKU:
 
-4. **What to look for in the logs:**
-   ```
-   Upcasting ProductCreated event for product <id>: adding SKU = <sku>
-   ```
+```bash
+./gradlew bootRun --args='--spring.profiles.active=legacy-data'
+```
 
-#### Option 2: Manual Demo via REST API
+Or generate them on demand:
 
-1. **Generate legacy products:**
-   ```bash
-   curl -X POST http://localhost:8080/api/generate/legacy-products \
-     -H "Content-Type: application/json" \
-     -d '{"count": 5}'
-   ```
+```bash
+curl -X POST http://localhost:8080/api/generate/legacy-products \
+  -H "Content-Type: application/json" \
+  -d '{"count": 5}'
+```
 
-2. **Demonstrate the upcaster:**
-   ```bash
-   curl -X POST http://localhost:8080/api/generate/demonstrate-upcaster \
-     -H "Content-Type: application/json" \
-     -d '{}'
-   ```
+Then query products and look for one with `(Legacy` in the name — its SKU will read
+`LEGACY-PENDING-...`, supplied by the `@EntityCreator` default:
 
-3. **Check the logs** for upcaster activity
+```bash
+curl http://localhost:8080/api/products
+```
 
-#### Option 3: Manual Demo via Product API
-
-1. **Start with legacy-data profile** (as shown above)
-
-2. **Query all products:**
-   ```bash
-   curl http://localhost:8080/api/products
-   ```
-
-3. **Find a product with "(Legacy" in the name** and note:
-   - It HAS a SKU field (added by the upcaster!)
-   - The SKU was NOT in the original event
-
-4. **Update the product to trigger event replay:**
-   ```bash
-   curl -X PUT http://localhost:8080/api/products/{product-id} \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "Updated Product Name",
-       "description": "Updated description",
-       "price": 5.99
-     }'
-   ```
-
-5. **Watch the logs** - you'll see the upcaster adding the SKU when the aggregate is loaded
-
-### How It Works
-
-1. **Legacy Event Creation**: When you generate legacy products, the application creates `ProductCreated` events with `sku = null`
-2. **Event Storage**: These events are stored in the Axon Server event store without SKU
-3. **Event Replay**: When an aggregate is loaded (e.g., to handle an update command), all events are replayed
-4. **Upcasting**: The `ProductCreatedUpcaster` intercepts old events and adds the SKU field using the `SkuLookupService`
-5. **Aggregate Reconstruction**: The aggregate receives the upcasted event with the SKU field
-
-### Upcaster Implementation
-
-The upcaster uses a multi-strategy approach to generate SKUs:
-
-1. **CSV Lookup**: Checks `sku-mappings.csv` for predefined mappings
-2. **Name-based**: Generates SKU from product name (e.g., "Espresso" → "ESP-001")
-3. **ID-based**: Falls back to using product ID (e.g., "SKU-{id}")
-
-See `ProductCreatedUpcaster.kt` and `SkuLookupService.kt` for implementation details.
+The generator UI's **"Demonstrate Upcaster"** button and the
+`POST /api/generate/demonstrate-upcaster` endpoint still work, but they demonstrate this
+fallback, not upcasting. Both are misnamed.
 
 ## Features
 
@@ -184,25 +141,26 @@ See `ProductCreatedUpcaster.kt` and `SkuLookupService.kt` for implementation det
 The application includes comprehensive data generation capabilities:
 
 - **Batch Generation**: Generate products, orders, and payments in bulk
-- **Legacy Products**: Generate products without SKU for upcaster demo
-- **Snapshot Triggering**: Generate enough events to trigger aggregate snapshots
+- **Legacy Products**: Generate products whose events carry no SKU
 - **Dead Letter Triggering**: Generate scenarios that produce dead letters
 
 ### Dead Letter Queue
 
 The application demonstrates dead letter queue handling:
 
-- Automatic retry with exponential backoff
-- Manual dead letter processing
-- Dead letter inspection and diagnostics
+- Failed events captured by a custom `ErrorHandler` into `failed_events`
+- Inspection via `/actuator/deadletters`
+- Note: `processDeadLettersManually()` only increments a retry counter - it does not replay events
 
-### Aggregate Snapshots
+### PostgreSQL's Role
 
-Aggregates are configured to create snapshots after a certain number of events:
+Events live in Axon Server, so PostgreSQL is no longer the event store. It now holds:
 
-- Products: Every 10 events
-- Orders: Every 20 events
-- Payments: Every 15 events
+| Table | Purpose |
+|---|---|
+| `token_entry` | Tracking tokens - the Axon Server connector ships no `TokenStore` |
+| `failed_events` | Custom dead-letter store |
+| `daily_revenue` | The JPA reporting projection |
 
 ## API Documentation
 
@@ -238,15 +196,20 @@ Aggregates are configured to create snapshots after a certain number of events:
 - `POST /api/generate/batch` - Generate batch data
 - `POST /api/generate/products` - Generate products
 - `POST /api/generate/orders` - Generate orders
-- `POST /api/generate/legacy-products` - Generate legacy products (for upcaster demo)
-- `POST /api/generate/demonstrate-upcaster` - Demonstrate upcaster functionality
+- `POST /api/generate/legacy-products` - Generate products whose events carry no SKU
+- `POST /api/generate/demonstrate-upcaster` - Misnamed: demonstrates the `@EntityCreator` SKU fallback, not upcasting
+
+### Reporting (PostgreSQL read model)
+
+- `GET /api/reporting/revenue?limit={n}` - Daily revenue rollups, newest first (default 30)
+- `GET /api/reporting/revenue/{date}` - Rollup for one ISO date, e.g. `2026-07-18`
 
 ## Technology Stack
 
-- **Axon Framework 4.x**: Event sourcing and CQRS framework
+- **Axon Framework 5.2.0**: Event sourcing and CQRS framework (`io.axoniq.framework`, AxonIQ Terms of Service - not Apache 2.0)
 - **Spring Boot 3.x**: Application framework
 - **Kotlin**: Programming language
-- **Axon Server**: Event store and message routing
+- **Axon Server**: Event store and message routing (requires a DCB-enabled context)
 - **MongoDB**: Query model storage
 - **Thymeleaf**: Server-side templating
 - **Bootstrap 5**: UI framework

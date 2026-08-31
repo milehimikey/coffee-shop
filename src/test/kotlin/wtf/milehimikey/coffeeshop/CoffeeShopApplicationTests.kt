@@ -11,13 +11,16 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.ActiveProfiles
+import wtf.milehimikey.coffeeshop.config.FailedEventRepository
 import wtf.milehimikey.coffeeshop.config.IdempotencyRepository
 import wtf.milehimikey.coffeeshop.orders.OrderView
 import wtf.milehimikey.coffeeshop.payments.PaymentView
 import wtf.milehimikey.coffeeshop.products.ProductView
+import wtf.milehimikey.coffeeshop.reporting.DailyRevenueRepository
 import java.math.BigDecimal
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -33,8 +36,96 @@ class CoffeeShopApplicationTests {
     @Autowired
     private lateinit var idempotencyRepository: IdempotencyRepository
 
+    @Autowired
+    private lateinit var dailyRevenueRepository: DailyRevenueRepository
+
+    @Autowired
+    private lateinit var failedEventRepository: FailedEventRepository
+
     @Test
     fun contextLoads() {
+    }
+
+    @Test
+    fun `should route a failing event to the dead letter queue`() {
+        // products/EventProcessors.kt throws for a price of exactly 99.99
+        val before = failedEventRepository.count()
+
+        val response = restTemplate.postForEntity(
+            "/api/products",
+            CreateProductRequest(
+                name = "Trip Wire",
+                description = "Deliberately fails in the product projection",
+                price = BigDecimal("99.99"),
+                sku = "DLQ-TRIP-1"
+            ),
+            String::class.java
+        )
+        // The command itself succeeds - the failure happens downstream in the projection
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+
+        await().atMost(30, TimeUnit.SECONDS).untilAsserted {
+            assertTrue(
+                failedEventRepository.count() > before,
+                "expected the failing ProductCreated event to reach the custom dead-letter store"
+            )
+        }
+
+        assertTrue(
+            failedEventRepository.findByProcessingGroup("product").isNotEmpty(),
+            "the failed event should be recorded against the 'product' processing group"
+        )
+    }
+
+    // Reporting projection (JPA / PostgreSQL)
+
+    @Test
+    fun `should project completed order and processed payment into the JPA revenue report`() {
+        val before = dailyRevenueRepository.findAll()
+            .sumOf { it.orderCount }
+
+        // Drive an order all the way to COMPLETED
+        val orderId = restTemplate.postForEntity(
+            "/api/orders", CreateOrderRequest(customerId = "reporting-customer"), String::class.java
+        ).body
+        assertNotNull(orderId)
+
+        restTemplate.postForEntity(
+            "/api/orders/{orderId}/items",
+            AddItemToOrderRequest(
+                productId = "reporting-product",
+                productName = "Cortado",
+                quantity = 2,
+                price = BigDecimal("3.25")
+            ),
+            String::class.java,
+            orderId
+        )
+        listOf("submit", "deliver", "complete").forEach { step ->
+            val response = restTemplate.postForEntity(
+                "/api/orders/{orderId}/$step", null, String::class.java, orderId
+            )
+            assertEquals(HttpStatus.OK, response.statusCode, "step '$step' failed")
+        }
+
+        // The reporting processor is separate from the Mongo ones, so it needs its own wait
+        await().atMost(15, TimeUnit.SECONDS).untilAsserted {
+            val total = dailyRevenueRepository.findAll().sumOf { it.orderCount }
+            assertTrue(total > before, "expected the completed order to be counted in daily_revenue")
+        }
+
+        val summaries = dailyRevenueRepository.findAll()
+        assertTrue(summaries.isNotEmpty(), "daily_revenue should not be empty")
+        assertTrue(
+            summaries.any { it.orderRevenue > BigDecimal.ZERO },
+            "expected non-zero order revenue, got ${summaries.map { it.orderRevenue }}"
+        )
+
+        // And the same rollup must be reachable through the query side
+        val viaQuery = restTemplate.getForEntity("/api/reporting/revenue", Array<Any>::class.java)
+        assertEquals(HttpStatus.OK, viaQuery.statusCode)
+        assertTrue((viaQuery.body?.size ?: 0) > 0, "GET /api/reporting/revenue returned nothing")
     }
 
     // Product REST Endpoint Tests
@@ -909,6 +1000,19 @@ class CoffeeShopApplicationTests {
         assertNotNull(record.processingGroup, "Processing group should be present")
         assertNotNull(record.headers, "Headers should be present")
         assertTrue(record.headers.isNotEmpty(), "Headers should not be empty")
+
+        // Records must be filed under the real processing group. Asserting only "not null"
+        // hid the fact that every record was landing in the fallback group, which collapses
+        // all processors into a single idempotency namespace.
+        val groups = records.map { it.processingGroup }.toSet()
+        assertTrue(
+            groups.any { it in setOf("product", "order", "payment", "reporting") },
+            "expected records filed under real processing groups, got $groups"
+        )
+        assertFalse(
+            groups.contains("default"),
+            "no record should fall back to the 'default' group, got $groups"
+        )
 
         // Verify that the product was created in the read model
         val productView = restTemplate.getForObject(
